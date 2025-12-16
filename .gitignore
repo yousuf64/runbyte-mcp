@@ -1,0 +1,42 @@
+# Binaries
+codebraid-mcp
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# Plugin build artifacts
+plugin.wasm
+plugin/node_modules/
+plugin/package-lock.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config files with secrets
+config.json
+*.local.json
+
+# Logs
+*.log
+
