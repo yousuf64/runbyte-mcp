@@ -22,26 +22,25 @@ func main() {
 
 func run() error {
 	// Parse flags
-	configPath := flag.String("config", "", "Path to config.json (required)")
+	configPath := flag.String("config", os.Getenv("CODEBRAID_CONFIG"), "Path to config file")
 	outputDir := flag.String("output-dir", "./generated", "Directory to write TypeScript files")
 	serverFilter := flag.String("server", "", "Generate only for specific server(s), comma-separated")
 	verbose := flag.Bool("verbose", false, "Enable verbose output")
 	flag.Parse()
 
-	if *configPath == "" {
-		flag.Usage()
-		return fmt.Errorf("--config is required")
-	}
-
 	ctx := context.Background()
 
-	// Load config
-	if *verbose {
+	// Load config with auto-discovery
+	if *verbose && *configPath != "" {
 		fmt.Printf("Loading config from: %s\n", *configPath)
 	}
-	cfg, err := config.Load(*configPath)
+	cfg, err := config.LoadWithOptions(config.LoadOptions{
+		ConfigPath:        *configPath,
+		SearchPaths:       config.DefaultSearchPaths(),
+		AllowEnvOverrides: true,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return fmt.Errorf("failed to load config: %w\n\nHint: Specify a config file with -config flag or CODEBRAID_CONFIG env var", err)
 	}
 
 	// Create ClientBox and connect to MCP servers

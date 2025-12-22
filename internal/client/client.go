@@ -3,11 +3,12 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/yousuf/codebraid-mcp/internal/config"
 	"net/http"
 	"os"
 	"os/exec"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/yousuf/codebraid-mcp/internal/config"
 )
 
 // MCPClient wraps an MCP client connection
@@ -21,14 +22,30 @@ type MCPClient struct {
 func NewMCPClient(ctx context.Context, name string, cfg config.McpServerConfig) (*MCPClient, error) {
 	var transport mcp.Transport
 	var err error
+	var usedTransport string
 
 	switch cfg.Type {
 	case "stdio":
 		transport, err = createStdioTransport(cfg)
+		usedTransport = "stdio"
 	case "http":
 		transport, err = createHttpTransport(cfg)
+		usedTransport = "http"
 	case "sse":
 		transport, err = createSSETransport(cfg)
+		usedTransport = "sse"
+	case "": // Auto-detect: try HTTP first, fallback to SSE
+		// Try HTTP first
+		transport, err = createHttpTransport(cfg)
+		if err == nil {
+			usedTransport = "http (auto-detected)"
+		} else {
+			// Fallback to SSE
+			transport, err = createSSETransport(cfg)
+			if err == nil {
+				usedTransport = "sse (fallback)"
+			}
+		}
 	default:
 		return nil, fmt.Errorf("unsupported transport type: %s", cfg.Type)
 	}
@@ -46,8 +63,24 @@ func NewMCPClient(ctx context.Context, name string, cfg config.McpServerConfig) 
 	// Connect to the server
 	session, err := client.Connect(ctx, transport, &mcp.ClientSessionOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect: %w", err)
+		// If auto-detect HTTP failed, try SSE as fallback
+		if cfg.Type == "" && usedTransport == "http (auto-detected)" {
+			fmt.Printf("HTTP connection failed for %q, trying SSE fallback...\n", name)
+			transport, err = createSSETransport(cfg)
+			if err == nil {
+				session, err = client.Connect(ctx, transport, &mcp.ClientSessionOptions{})
+				if err == nil {
+					usedTransport = "sse (fallback)"
+				}
+			}
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect: %w", err)
+		}
 	}
+
+	fmt.Printf("Connected to %q using %s transport\n", name, usedTransport)
 
 	// List available tools
 	toolsResult, err := session.ListTools(ctx, &mcp.ListToolsParams{})

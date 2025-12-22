@@ -2,19 +2,25 @@ package sandbox
 
 import (
 	"bytes"
+	_ "embed"
 	"fmt"
-	"github.com/yousuf/codebraid-mcp/internal/codegen"
-	"github.com/yousuf/codebraid-mcp/internal/config"
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"github.com/yousuf/codebraid-mcp/internal/codegen"
 )
 
-// TypeScriptBundler handles TypeScript to JavaScript transformation using SWC
+// TypeScriptBundler handles TypeScript to JavaScript transformation using Rspack/SWC
 type TypeScriptBundler struct {
 	rspackPath string
 	libs       map[string]string
 }
+
+// embeddedRspackConfig is the bundler configuration embedded in the binary
+//
+//go:embed rspack.config.ts
+var embeddedRspackConfig string
 
 // NewTypeScriptBundler creates a new bundler instance
 func NewTypeScriptBundler(libs map[string]string) (*TypeScriptBundler, error) {
@@ -57,12 +63,6 @@ func findRspack() (string, error) {
 
 // Bundle bundles TypeScript modules into a single JavaScript file
 func (t *TypeScriptBundler) Bundle(code string) (js string, sourceMap string, err error) {
-	// TODO: Make it configurable of course
-	rspack, err := config.LoadRspack("/Users/yousuf/WebstormProjects/fatmango-mcp/examples/rspack.config.ts")
-	if err != nil {
-		return "", "", err
-	}
-
 	// Create unique temporary directory for this bundling
 	// This ensures parallel requests don't interfere with each other
 	tmpDir, err := os.MkdirTemp("", "rspack-transform-*")
@@ -82,8 +82,8 @@ func (t *TypeScriptBundler) Bundle(code string) (js string, sourceMap string, er
 		return "", "", fmt.Errorf("failed to write input file: %w", err)
 	}
 
-	// Write rspack config
-	if err := os.WriteFile(configFile, []byte(rspack), 0644); err != nil {
+	// Write embedded rspack config
+	if err := os.WriteFile(configFile, []byte(embeddedRspackConfig), 0644); err != nil {
 		return "", "", fmt.Errorf("failed to write config file: %w", err)
 	}
 
