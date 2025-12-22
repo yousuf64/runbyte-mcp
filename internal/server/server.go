@@ -1,9 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/yousuf/codebraid-mcp/internal/codegen"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/yousuf/codebraid-mcp/internal/sandbox"
@@ -22,7 +25,13 @@ type GetMcpToolsArgs struct {
 
 // GetMcpToolDetailsArgs represents the arguments for the get_mcp_tool_details tool
 type GetMcpToolDetailsArgs struct {
-	ToolName string `json:"toolName" jsonschema:"Name of the tool to get details for"`
+	ServerName string `json:"serverName" jsonschema:"Required server name"`
+	ToolName   string `json:"toolName" jsonschema:"Name of the tool to get details for"`
+}
+
+// GetMcpFileArgs represents the arguments for the get_mcp_file tool
+type GetMcpFileArgs struct {
+	FileName string `json:"fileName" jsonschema:"Required file name"`
 }
 
 // NewMCPServer creates and configures the MCP server
@@ -31,13 +40,31 @@ func NewMCPServer(sessionMgr *session.Manager) *mcp.Server {
 		Name:    "codebraid-mcp",
 		Version: "1.0.0",
 	}, &mcp.ServerOptions{
-		Instructions: "MCP orchestrator with TypeScript code execution sandbox. Use execute_code to run TypeScript that can call downstream MCP tools via callTool(serverName, toolName, args).",
+		//Instructions: "Supercharging AI agents with a TypeScript code execution environment. Use execute_code` to execute TypeScript code. The execution environment provides access to tool execution through the function API `callTool(serverName: string, toolName: string, args: { [key: string]: any }) => Promise<any>`",
+		Instructions: `
+Supercharge workflows with a TypeScript sandbox. The sandbox exports capabilities using "*.ts" files in the "./lib" directory. 
+Use "get_files" to list files in the "lib" directory.
+Use "read_file" to read a file in the "lib" directory.
+Use "execute_code" to execute a TypeScript script. The script must contain an "exec(): T | CallToolResult method. You are able to import functions and types from the lib directory.
+CallToolResult is a generic interface that is exported from "./lib/mcp-types.ts" when the tool doesn't have a strong return type.
+
+Before calling "execute_code", use "read_file" to get a better idea on the exporting types and functions.
+`,
 	})
 
 	// Register execute_code tool
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "execute_code",
-		Description: "Execute TypeScript code in a sandbox with access to downstream MCP tools via callTool(serverName, toolName, args)",
+		Name: "execute_code",
+		Description: `Execute TypeScript code in a sandbox with access to libs. Imports must end with the file extension.
+
+		Example code:
+			import { CallToolResult } from "./lib/mcp-types.ts";
+			import { viewProfile, ViewProfileResult } from "./lib/slack.ts";
+	
+			async function exec(): Promise<ViewProfileResult> {
+				return await viewProfile({ withMetadata: true });
+			}
+`,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args ExecuteCodeArgs) (*mcp.CallToolResult, any, error) {
 		// Get or create session context
 		sessionCtx, err := sessionMgr.GetOrCreateSession(ctx, req.Session.ID())
@@ -70,8 +97,8 @@ func NewMCPServer(sessionMgr *session.Manager) *mcp.Server {
 
 	// Register get_mcp_tools tool
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "get_mcp_tools",
-		Description: "List all available downstream MCP tools",
+		Name:        "get_files",
+		Description: "List all files in the `lib` directory",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args GetMcpToolsArgs) (*mcp.CallToolResult, any, error) {
 		// Get or create session context
 		sessionCtx, err := sessionMgr.GetOrCreateSession(ctx, req.Session.ID())
@@ -83,10 +110,19 @@ func NewMCPServer(sessionMgr *session.Manager) *mcp.Server {
 		}
 
 		var toolsJSON []byte
+		var toolsTreeBuf = bytes.Buffer{}
 
 		if args.WithDescription {
 			tools := sessionCtx.ClientBox.GetToolsWithDescription()
 			toolsJSON, err = json.MarshalIndent(tools, "", "  ")
+
+			for svr, toolList := range tools {
+				toolsTreeBuf.WriteString(fmt.Sprintf("%s.ts\n", svr))
+
+				for _, tool := range toolList {
+					toolsTreeBuf.WriteString(fmt.Sprintf("└──%s() # %s\n", toCamelCase(tool.Name), tool.Description))
+				}
+			}
 		} else {
 			tools := sessionCtx.ClientBox.ListTools()
 			// Convert to simpler format (just tool names)
@@ -99,24 +135,33 @@ func NewMCPServer(sessionMgr *session.Manager) *mcp.Server {
 				simpleTools[server] = names
 			}
 			toolsJSON, err = json.MarshalIndent(simpleTools, "", "  ")
+
+			for svr, toolList := range tools {
+				toolsTreeBuf.WriteString(fmt.Sprintf("%s.ts\n", svr))
+
+				for _, tool := range toolList {
+					toolsTreeBuf.WriteString(fmt.Sprintf("└──%s()\n", toCamelCase(tool.Name)))
+				}
+			}
 		}
 
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to marshal tools: %w", err)
 		}
 
+		_ = toolsJSON
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
-				&mcp.TextContent{Text: string(toolsJSON)},
+				&mcp.TextContent{Text: toolsTreeBuf.String()},
 			},
 		}, nil, nil
 	})
 
-	// Register get_mcp_tool_details tool
+	// Register get_mcp_file tool
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "get_mcp_tool_details",
-		Description: "Get detailed information about a specific MCP tool",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args GetMcpToolDetailsArgs) (*mcp.CallToolResult, any, error) {
+		Name:        "read_file",
+		Description: "Read a file from `lib` directory",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args GetMcpFileArgs) (*mcp.CallToolResult, any, error) {
 		// Get or create session context
 		sessionCtx, err := sessionMgr.GetOrCreateSession(ctx, req.Session.ID())
 		if err != nil {
@@ -126,34 +171,31 @@ func NewMCPServer(sessionMgr *session.Manager) *mcp.Server {
 			return nil, nil, fmt.Errorf("invalid session")
 		}
 
-		allTools := sessionCtx.ClientBox.ListTools()
-
-		// Find the tool
-		var foundTool *mcp.Tool
-		var foundServer string
-		for serverName, tools := range allTools {
-			for _, tool := range tools {
-				if tool.Name == args.ToolName {
-					foundTool = tool
-					foundServer = serverName
-					break
-				}
-			}
-			if foundTool != nil {
-				break
-			}
+		intr := codegen.NewIntrospector(sessionCtx.ClientBox)
+		if args.FileName[len(args.FileName)-3:] == ".ts" {
+			args.FileName = args.FileName[:len(args.FileName)-3]
 		}
 
-		if foundTool == nil {
-			return nil, nil, fmt.Errorf("tool %q not found", args.ToolName)
+		tsgen := codegen.NewTypeScriptGenerator()
+		var file string
+
+		if args.FileName == "mcp-types" {
+			file = tsgen.GenerateMCPTypesFile()
+		} else {
+			tools, err := intr.IntrospectServer(ctx, args.FileName)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			file, err = tsgen.GenerateFile(args.FileName, tools)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 
 		// Create detailed response
 		details := map[string]interface{}{
-			"server":      foundServer,
-			"name":        foundTool.Name,
-			"description": foundTool.Description,
-			"inputSchema": foundTool.InputSchema,
+			"content": file,
 		}
 
 		detailsJSON, err := json.MarshalIndent(details, "", "  ")
@@ -168,5 +210,90 @@ func NewMCPServer(sessionMgr *session.Manager) *mcp.Server {
 		}, nil, nil
 	})
 
+	// Register get_mcp_tool_details tool
+	//mcp.AddTool(server, &mcp.Tool{
+	//	Name:        "get_mcp_tool_details",
+	//	Description: "Get detailed information about a specific MCP tool",
+	//}, func(ctx context.Context, req *mcp.CallToolRequest, args GetMcpToolDetailsArgs) (*mcp.CallToolResult, any, error) {
+	//	// Get or create session context
+	//	sessionCtx, err := sessionMgr.GetOrCreateSession(ctx, req.Session.ID())
+	//	if err != nil {
+	//		return nil, nil, err
+	//	}
+	//	if sessionCtx == nil {
+	//		return nil, nil, fmt.Errorf("invalid session")
+	//	}
+	//
+	//	allTools := sessionCtx.ClientBox.ListTools()
+	//
+	//	// Find the tool
+	//	var foundTool *mcp.Tool
+	//	for serverName, tools := range allTools {
+	//		if serverName != args.FileName {
+	//			continue
+	//		}
+	//
+	//		for _, tool := range tools {
+	//			if tool.Name != args.ToolName {
+	//				continue
+	//			}
+	//
+	//			foundTool = tool
+	//			break
+	//		}
+	//	}
+	//
+	//	if foundTool == nil {
+	//		return nil, nil, fmt.Errorf("tool %q not found", args.ToolName)
+	//	}
+	//
+	//	// Create detailed response
+	//	details := map[string]interface{}{
+	//		"server":       args.FileName,
+	//		"name":         foundTool.Name,
+	//		"description":  foundTool.Description,
+	//		"inputSchema":  foundTool.InputSchema,
+	//		"outputSchema": foundTool.OutputSchema,
+	//	}
+	//
+	//	detailsJSON, err := json.MarshalIndent(details, "", "  ")
+	//	if err != nil {
+	//		return nil, nil, fmt.Errorf("failed to marshal tool details: %w", err)
+	//	}
+	//
+	//	return &mcp.CallToolResult{
+	//		Content: []mcp.Content{
+	//			&mcp.TextContent{Text: string(detailsJSON)},
+	//		},
+	//	}, nil, nil
+	//})
+
 	return server
+}
+
+// TODO: Extract to util
+// toPascalCase converts a string to PascalCase
+func toPascalCase(s string) string {
+	// Split by underscore or dash
+	parts := strings.FieldsFunc(s, func(r rune) bool {
+		return r == '_' || r == '-'
+	})
+
+	for i, part := range parts {
+		if len(part) > 0 {
+			parts[i] = strings.ToUpper(part[0:1]) + part[1:]
+		}
+	}
+
+	return strings.Join(parts, "")
+}
+
+// TODO: Extract to util
+// toCamelCase converts a string to camelCase
+func toCamelCase(s string) string {
+	pascal := toPascalCase(s)
+	if len(pascal) == 0 {
+		return pascal
+	}
+	return strings.ToLower(pascal[0:1]) + pascal[1:]
 }

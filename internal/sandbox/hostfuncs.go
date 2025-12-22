@@ -47,6 +47,21 @@ func createCallMcpToolHostFunc(sb *Sandbox) extism.HostFunction {
 
 			// Make synchronous MCP call
 			result, err := sb.clientBox.CallTool(sb.ctx, toolCall.ServerName, toolCall.ToolName, toolCall.Args)
+			if err != nil {
+				plugin.Logf(extism.LogLevelError, "Failed to call MCP tool: %v", err)
+
+				errResp := map[string]string{"error": err.Error()}
+				responseData, _ := json.Marshal(errResp)
+				responseOffset, err := plugin.WriteBytes(responseData)
+				if err != nil {
+					plugin.Logf(extism.LogLevelError, "Failed to write error response: %v", err)
+					stack[0] = 0
+					return
+				}
+
+				stack[0] = responseOffset
+				return
+			}
 
 			// Prepare response
 			response := McpToolResponse{
@@ -57,10 +72,12 @@ func createCallMcpToolHostFunc(sb *Sandbox) extism.HostFunction {
 				response.Error = err.Error()
 				plugin.Logf(extism.LogLevelError, "MCP call failed: %v", err)
 			} else {
-				// Extract the text content from the result
-				if len(result.Content) > 0 {
-					response.Result = result.Content
+				if result.StructuredContent == nil {
+					response.Result = result
+				} else {
+					response.Result = result.StructuredContent
 				}
+
 				plugin.Log(extism.LogLevelInfo, "MCP call succeeded")
 			}
 

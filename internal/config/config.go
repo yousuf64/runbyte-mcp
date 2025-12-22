@@ -45,6 +45,15 @@ func Load(configPath string) (*Config, error) {
 	return &config, nil
 }
 
+func LoadRspack(configPath string) (string, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read rspack config file: %w", err)
+	}
+
+	return string(data), nil
+}
+
 // validate checks if the configuration is valid
 func validate(config *Config) error {
 	if len(config.McpServers) == 0 {
