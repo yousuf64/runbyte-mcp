@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -18,20 +17,21 @@ type ExecuteCodeArgs struct {
 	Code string `json:"code" jsonschema:"TypeScript code to execute in sandbox"`
 }
 
-// GetMcpToolsArgs represents the arguments for the get_mcp_tools tool
-type GetMcpToolsArgs struct {
-	WithDescription bool `json:"withDescription" jsonschema:"Include tool descriptions"`
+// ListLibFilesArgs represents the arguments for the list_lib_files tool
+type ListLibFilesArgs struct {
+	WithDescriptions bool `json:"withDescriptions,omitempty" jsonschema:"Include descriptions of what each library does (default: false)"`
+	WithFunctions    bool `json:"withFunctions,omitempty" jsonschema:"Include list of exported functions in each library (default: false)"`
 }
 
-// GetMcpToolDetailsArgs represents the arguments for the get_mcp_tool_details tool
-type GetMcpToolDetailsArgs struct {
-	ServerName string `json:"serverName" jsonschema:"Required server name"`
-	ToolName   string `json:"toolName" jsonschema:"Name of the tool to get details for"`
+// ReadLibFileArgs represents the arguments for the read_lib_file tool
+type ReadLibFileArgs struct {
+	FileName string `json:"fileName" jsonschema:"Required. Name of the .ts file in ./lib directory (e.g., 'github.ts' or just 'github')"`
 }
 
-// GetMcpFileArgs represents the arguments for the get_mcp_file tool
-type GetMcpFileArgs struct {
-	FileName string `json:"fileName" jsonschema:"Required file name"`
+// InspectFunctionArgs represents the arguments for the inspect_function tool
+type InspectFunctionArgs struct {
+	FileName     string `json:"fileName" jsonschema:"Required. Library file name (e.g., 'github.ts')"`
+	FunctionName string `json:"functionName" jsonschema:"Required. Function to inspect in camelCase (e.g., 'listRepos'). Also accepts snake_case or PascalCase - will be normalized automatically."`
 }
 
 // NewMCPServer creates and configures the MCP server
@@ -40,15 +40,43 @@ func NewMCPServer(sessionMgr *session.Manager) *mcp.Server {
 		Name:    "codebraid-mcp",
 		Version: "1.0.0",
 	}, &mcp.ServerOptions{
-		//Instructions: "Supercharging AI agents with a TypeScript code execution environment. Use execute_code` to execute TypeScript code. The execution environment provides access to tool execution through the function API `callTool(serverName: string, toolName: string, args: { [key: string]: any }) => Promise<any>`",
 		Instructions: `
-Supercharge workflows with a TypeScript sandbox. The sandbox exports capabilities using "*.ts" files in the "./lib" directory. 
-Use "get_files" to list files in the "lib" directory.
-Use "read_file" to read a file in the "lib" directory.
-Use "execute_code" to execute a TypeScript script. The script must contain an "exec(): T | CallToolResult method. You are able to import functions and types from the lib directory.
-CallToolResult is a generic interface that is exported from "./lib/mcp-types.ts" when the tool doesn't have a strong return type.
+TypeScript Code Execution Environment with MCP Tool Libraries
 
-Before calling "execute_code", use "read_file" to get a better idea on the exporting types and functions.
+The "./lib" directory contains pre-written TypeScript libraries that wrap downstream MCP tools.
+Each library corresponds to one MCP server (e.g., "./lib/github.ts", "./lib/slack.ts", "./lib/filesystem.ts").
+
+Available Tools:
+1. "list_lib_files" - List all available .ts libraries in the ./lib directory (shows function counts)
+2. "read_lib_file" - Read the contents of a .ts file from ./lib to see available functions and types
+3. "inspect_function" - View a specific function's signature and documentation from a library
+4. "execute_code" - Execute TypeScript code with imports from ./lib (code is bundled automatically)
+
+Recommended Workflow:
+1. Call "list_lib_files" (optionally with withFunctions: true) to see what libraries are available
+2. For libraries with few functions (<15), call "read_lib_file" to see the complete implementation
+3. For libraries with many functions (≥15), use "inspect_function" to view specific functions you need
+4. Write your TypeScript code importing from "./lib/[name].ts"
+5. Your code must have an "exec()" function as the entry point
+6. Call "execute_code" with your complete code
+
+Example Code Structure:
+    import { listRepos, ListReposArgs } from "./lib/github.ts";
+    import { sendMessage } from "./lib/slack.ts";
+    
+    export async function exec() {
+        const repos = await listRepos({ owner: "modelcontextprotocol" });
+        await sendMessage({ channel: "#dev", text: "Found " + repos.length + " repos" });
+        return { success: true, repoCount: repos.length };
+    }
+
+Notes:
+- All imports from "./lib/*.ts" are automatically bundled before execution
+- The exec() function is required and serves as your code's entry point
+- You can import and use multiple libraries in the same code
+- TypeScript types provide autocomplete and type safety
+- Execution timeout: 30 seconds
+- Tip: Use list_lib_files with withFunctions: true to gauge library size before reading
 `,
 	})
 
@@ -58,15 +86,47 @@ Before calling "execute_code", use "read_file" to get a better idea on the expor
 	// Register execute_code tool
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "execute_code",
-		Description: `Execute TypeScript code in a sandbox with access to libs. Imports must end with the file extension.
+		Description: `Execute TypeScript code in a sandboxed environment.
 
-		Example code:
-			import { CallToolResult } from "./lib/mcp-types.ts";
-			import { viewProfile, ViewProfileResult } from "./lib/slack.ts";
-	
-			async function exec(): Promise<ViewProfileResult> {
-				return await viewProfile({ withMetadata: true });
-			}
+REQUIRED: Your code must define a function named "exec()" as the entry point.
+
+Basic structure:
+    async function exec() {
+        // Your code here
+        return result;
+    }
+
+The exec() function:
+- Can be async or sync
+- Can return any JSON-serializable value
+- Should have a strong return type (highly recommended for type safety)
+- Is automatically called when your code executes
+- Does not need to be exported
+
+Complete Example with Strong Typing:
+    import { listRepos } from "./lib/github.ts";
+    import { readFile } from "./lib/filesystem.ts";
+    
+    interface ExecResult {
+        totalRepos: number;
+        readmeLength: number;
+    }
+    
+    async function exec(): Promise<ExecResult> {
+        const repos = await listRepos({ owner: "octocat" });
+        const readme = await readFile({ path: "./README.md" });
+        
+        return {
+            totalRepos: repos.length,
+            readmeLength: readme.length
+        };
+    }
+
+Runtime Environment:
+- Imports from "./lib/*.ts" are bundled automatically
+- Execution timeout: 30 seconds
+- No access to Node.js built-ins or filesystem
+- No access to DOM or browser APIs
 `,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args ExecuteCodeArgs) (*mcp.CallToolResult, any, error) {
 		sessionCtx, err := getSessionFromContext(ctx)
@@ -94,170 +154,182 @@ Before calling "execute_code", use "read_file" to get a better idea on the expor
 		}, nil, nil
 	})
 
-	// Register get_mcp_tools tool
+	// Register list_lib_files tool
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "get_files",
-		Description: "List all files in the `lib` directory",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args GetMcpToolsArgs) (*mcp.CallToolResult, any, error) {
+		Name:        "list_lib_files",
+		Description: "List all available TypeScript library files in the ./lib directory",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args ListLibFilesArgs) (*mcp.CallToolResult, any, error) {
 		sessionCtx, err := getSessionFromContext(ctx)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		var toolsJSON []byte
-		var toolsTreeBuf = bytes.Buffer{}
+		var output bytes.Buffer
 
-		if args.WithDescription {
+		if args.WithDescriptions || args.WithFunctions {
 			tools := sessionCtx.ClientHub.GetToolsWithDescription()
-			toolsJSON, err = json.MarshalIndent(tools, "", "  ")
 
 			for svr, toolList := range tools {
-				toolsTreeBuf.WriteString(fmt.Sprintf("%s.ts\n", svr))
+				output.WriteString(fmt.Sprintf("%s.ts (%d functions)\n", svr, len(toolList)))
 
-				for _, tool := range toolList {
-					toolsTreeBuf.WriteString(fmt.Sprintf("└──%s() # %s\n", toCamelCase(tool.Name), tool.Description))
+				for i, tool := range toolList {
+					prefix := "├──"
+					if i == len(toolList)-1 {
+						prefix = "└──"
+					}
+
+					funcName := toCamelCase(tool.Name)
+					if args.WithDescriptions && tool.Description != "" {
+						output.WriteString(fmt.Sprintf("%s %s() - %s\n", prefix, funcName, tool.Description))
+					} else {
+						output.WriteString(fmt.Sprintf("%s %s()\n", prefix, funcName))
+					}
 				}
+				output.WriteString("\n")
 			}
 		} else {
 			tools := sessionCtx.ClientHub.ListTools()
-			// Convert to simpler format (just tool names)
-			simpleTools := make(map[string][]string)
-			for server, toolList := range tools {
-				names := make([]string, len(toolList))
-				for i, tool := range toolList {
-					names[i] = tool.Name
-				}
-				simpleTools[server] = names
-			}
-			toolsJSON, err = json.MarshalIndent(simpleTools, "", "  ")
 
 			for svr, toolList := range tools {
-				toolsTreeBuf.WriteString(fmt.Sprintf("%s.ts\n", svr))
+				output.WriteString(fmt.Sprintf("%s.ts (%d)\n", svr, len(toolList)))
 
-				for _, tool := range toolList {
-					toolsTreeBuf.WriteString(fmt.Sprintf("└──%s()\n", toCamelCase(tool.Name)))
+				for i, tool := range toolList {
+					prefix := "├──"
+					if i == len(toolList)-1 {
+						prefix = "└──"
+					}
+					output.WriteString(fmt.Sprintf("%s %s()\n", prefix, toCamelCase(tool.Name)))
 				}
+				output.WriteString("\n")
 			}
 		}
 
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to marshal tools: %w", err)
-		}
+		// Add mcp-types.ts at the end
+		output.WriteString("mcp-types.ts\n")
+		output.WriteString("└── (Common types and utilities)\n")
 
-		_ = toolsJSON
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
-				&mcp.TextContent{Text: toolsTreeBuf.String()},
+				&mcp.TextContent{Text: output.String()},
 			},
 		}, nil, nil
 	})
 
-	// Register get_mcp_file tool
+	// Register read_lib_file tool
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "read_file",
-		Description: "Read a file from `lib` directory",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args GetMcpFileArgs) (*mcp.CallToolResult, any, error) {
+		Name:        "read_lib_file",
+		Description: "Read the contents of a TypeScript library file from the ./lib directory",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args ReadLibFileArgs) (*mcp.CallToolResult, any, error) {
 		sessionCtx, err := getSessionFromContext(ctx)
 		if err != nil {
 			return nil, nil, err
 		}
 
+		// Normalize filename - remove .ts extension if present
+		fileName := strings.TrimSuffix(args.FileName, ".ts")
+
 		intr := codegen.NewIntrospector(sessionCtx.ClientHub)
-		if args.FileName[len(args.FileName)-3:] == ".ts" {
-			args.FileName = args.FileName[:len(args.FileName)-3]
-		}
-
 		tsgen := codegen.NewTypeScriptGenerator()
-		var file string
+		var fileContent string
 
-		if args.FileName == "mcp-types" {
-			file = tsgen.GenerateMCPTypesFile()
+		if fileName == "mcp-types" {
+			fileContent = tsgen.GenerateMCPTypesFile()
 		} else {
-			tools, err := intr.IntrospectServer(ctx, args.FileName)
+			// Try to introspect the server
+			tools, err := intr.IntrospectServer(ctx, fileName)
 			if err != nil {
-				return nil, nil, err
+				// Maintain file metaphor in error message
+				availableServers := intr.ListServers()
+				availableFiles := make([]string, len(availableServers))
+				for i, s := range availableServers {
+					availableFiles[i] = s + ".ts"
+				}
+				return nil, nil, fmt.Errorf("library file '%s.ts' not found in ./lib directory. Available files: %v",
+					fileName, append(availableFiles, "mcp-types.ts"))
 			}
 
-			file, err = tsgen.GenerateFile(args.FileName, tools)
+			fileContent, err = tsgen.GenerateFile(fileName, tools)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, fmt.Errorf("failed to read library file: %w", err)
 			}
 		}
 
-		// Create detailed response
-		details := map[string]interface{}{
-			"content": file,
-		}
-
-		detailsJSON, err := json.MarshalIndent(details, "", "  ")
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to marshal tool details: %w", err)
-		}
-
+		// Return TypeScript content directly (not wrapped in JSON)
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
-				&mcp.TextContent{Text: string(detailsJSON)},
+				&mcp.TextContent{Text: fileContent},
 			},
 		}, nil, nil
 	})
 
-	// Register get_mcp_tool_details tool
-	//mcp.AddTool(server, &mcp.Tool{
-	//	Name:        "get_mcp_tool_details",
-	//	Description: "Get detailed information about a specific MCP tool",
-	//}, func(ctx context.Context, req *mcp.CallToolRequest, args GetMcpToolDetailsArgs) (*mcp.CallToolResult, any, error) {
-	//	// Get or create session context
-	//	sessionCtx, err := sessionMgr.GetOrCreateSession(ctx, req.Session.ID())
-	//	if err != nil {
-	//		return nil, nil, err
-	//	}
-	//	if sessionCtx == nil {
-	//		return nil, nil, fmt.Errorf("invalid session")
-	//	}
-	//
-	//	allTools := sessionCtx.ClientHub.ListTools()
-	//
-	//	// Find the tool
-	//	var foundTool *mcp.Tool
-	//	for serverName, tools := range allTools {
-	//		if serverName != args.FileName {
-	//			continue
-	//		}
-	//
-	//		for _, tool := range tools {
-	//			if tool.Name != args.ToolName {
-	//				continue
-	//			}
-	//
-	//			foundTool = tool
-	//			break
-	//		}
-	//	}
-	//
-	//	if foundTool == nil {
-	//		return nil, nil, fmt.Errorf("tool %q not found", args.ToolName)
-	//	}
-	//
-	//	// Create detailed response
-	//	details := map[string]interface{}{
-	//		"server":       args.FileName,
-	//		"name":         foundTool.Name,
-	//		"description":  foundTool.Description,
-	//		"inputSchema":  foundTool.InputSchema,
-	//		"outputSchema": foundTool.OutputSchema,
-	//	}
-	//
-	//	detailsJSON, err := json.MarshalIndent(details, "", "  ")
-	//	if err != nil {
-	//		return nil, nil, fmt.Errorf("failed to marshal tool details: %w", err)
-	//	}
-	//
-	//	return &mcp.CallToolResult{
-	//		Content: []mcp.Content{
-	//			&mcp.TextContent{Text: string(detailsJSON)},
-	//		},
-	//	}, nil, nil
-	//})
+	// Register inspect_function tool
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "inspect_function",
+		Description: "View a specific function's signature, arguments, and return type from a library file. Function names are automatically normalized (e.g., 'list_repos', 'listRepos', or 'ListRepos' all work).",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args InspectFunctionArgs) (*mcp.CallToolResult, any, error) {
+		sessionCtx, err := getSessionFromContext(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// Normalize filename - remove .ts extension if present
+		fileName := strings.TrimSuffix(args.FileName, ".ts")
+
+		// Special case for mcp-types
+		if fileName == "mcp-types" {
+			return nil, nil, fmt.Errorf("mcp-types.ts contains only type definitions, not callable functions. Use 'read_lib_file' to view its contents")
+		}
+
+		// Get tools for this server
+		intr := codegen.NewIntrospector(sessionCtx.ClientHub)
+		tools, err := intr.IntrospectServer(ctx, fileName)
+		if err != nil {
+			// Maintain file metaphor in error message
+			availableServers := intr.ListServers()
+			availableFiles := make([]string, len(availableServers))
+			for i, s := range availableServers {
+				availableFiles[i] = s + ".ts"
+			}
+			return nil, nil, fmt.Errorf("library file '%s.ts' not found in ./lib directory. Available files: %v",
+				fileName, availableFiles)
+		}
+
+		// Find the specific function
+		// Normalize both the requested name and tool names to camelCase for comparison
+		// This allows users to provide: "list_repos", "listRepos", or "ListRepos"
+		// Tool definitions come from MCP servers in snake_case (e.g., "list_repos")
+		requestedFuncName := toCamelCase(args.FunctionName)
+		var foundTool *codegen.ToolDefinition
+		for i, tool := range tools {
+			if toCamelCase(tool.Name) == requestedFuncName {
+				foundTool = &tools[i]
+				break
+			}
+		}
+
+		if foundTool == nil {
+			// List available functions
+			availableFuncs := make([]string, len(tools))
+			for i, t := range tools {
+				availableFuncs[i] = toCamelCase(t.Name)
+			}
+			return nil, nil, fmt.Errorf("function '%s' not found in %s.ts. Available functions: %v",
+				requestedFuncName, fileName, availableFuncs)
+		}
+
+		// Generate TypeScript for just this one function using the existing generator
+		tsgen := codegen.NewTypeScriptGenerator()
+		functionContent, err := tsgen.GenerateFile(fileName, []codegen.ToolDefinition{*foundTool})
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to generate function signature: %w", err)
+		}
+
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: functionContent},
+			},
+		}, nil, nil
+	})
 
 	return server
 }
@@ -265,9 +337,9 @@ Before calling "execute_code", use "read_file" to get a better idea on the expor
 // TODO: Extract to util
 // toPascalCase converts a string to PascalCase
 func toPascalCase(s string) string {
-	// Split by underscore or dash
+	// Split by underscore, dash, or space
 	parts := strings.FieldsFunc(s, func(r rune) bool {
-		return r == '_' || r == '-'
+		return r == '_' || r == '-' || r == ' '
 	})
 
 	for i, part := range parts {
@@ -281,7 +353,18 @@ func toPascalCase(s string) string {
 
 // TODO: Extract to util
 // toCamelCase converts a string to camelCase
+// Handles: snake_case, kebab-case, space-separated, PascalCase, and already-camelCase
 func toCamelCase(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+
+	// If already camelCase or PascalCase (no underscores/dashes/spaces), just ensure first char is lowercase
+	if !strings.ContainsAny(s, "_- ") {
+		return strings.ToLower(s[0:1]) + s[1:]
+	}
+
+	// Otherwise, convert from snake_case/kebab-case/space-separated to camelCase
 	pascal := toPascalCase(s)
 	if len(pascal) == 0 {
 		return pascal
