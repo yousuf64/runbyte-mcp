@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/yousuf/codebraid-mcp/internal/bundler"
 	"github.com/yousuf/codebraid-mcp/internal/config"
 	"github.com/yousuf/codebraid-mcp/internal/server"
 	"github.com/yousuf/codebraid-mcp/internal/session"
@@ -43,6 +44,12 @@ func main() {
 
 	log.Printf("Loaded configuration with %d MCP server(s)", len(cfg.McpServers))
 
+	// Initialize bundler
+	if err = bundler.Initialize(); err != nil {
+		log.Fatalf("Failed to initialize bundler: %v\n\nHint: Install rspack with: npm install -g @rspack/cli @rspack/core", err)
+	}
+	log.Println("Bundler initialized successfully")
+
 	// Determine server port (priority: flag > env > config > default)
 	port := *portFlag
 	if port == 0 {
@@ -61,7 +68,7 @@ func main() {
 	handler := mcp.NewStreamableHTTPHandler(func(req *http.Request) *mcp.Server {
 		// Create a new MCP server instance for each request
 		// This allows the SDK to manage sessions properly
-		return server.NewMCPServer(sessionMgr)
+		return server.NewMcpServer(sessionMgr)
 	}, &mcp.StreamableHTTPOptions{
 		Stateless:      false,
 		JSONResponse:   false,

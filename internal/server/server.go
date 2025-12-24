@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/yousuf/codebraid-mcp/internal/bundler"
 	"github.com/yousuf/codebraid-mcp/internal/codegen"
 	"github.com/yousuf/codebraid-mcp/internal/sandbox"
 	"github.com/yousuf/codebraid-mcp/internal/session"
@@ -34,8 +35,8 @@ type InspectFunctionArgs struct {
 	FunctionName string `json:"functionName" jsonschema:"Required. Function to inspect in camelCase (e.g., 'listRepos'). Also accepts snake_case or PascalCase - will be normalized automatically."`
 }
 
-// NewMCPServer creates and configures the MCP server
-func NewMCPServer(sessionMgr *session.Manager) *mcp.Server {
+// NewMcpServer creates and configures the MCP server
+func NewMcpServer(sessionMgr *session.Manager) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "codebraid-mcp",
 		Version: "1.0.0",
@@ -134,15 +135,29 @@ Runtime Environment:
 			return nil, nil, err
 		}
 
-		// Create sandbox with request context (respects request cancellation)
+		// Step 1: Bundle the code using session's bundle directory
+		b, err := bundler.New()
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create bundler: %w", err)
+		}
+
+		codeWithCaller := fmt.Sprintf(`%s
+exec();
+`, args.Code)
+		bundledCode, sourceMap, err := b.BundleWithSession(sessionCtx.BundleDir, codeWithCaller)
+		if err != nil {
+			return nil, nil, fmt.Errorf("bundling failed: %w", err)
+		}
+
+		// Step 2: Create sandbox
 		sb, err := sandbox.NewSandbox(ctx, "./wasm/dist/sandbox.wasm", sessionCtx.ClientHub)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create sandbox: %w", err)
 		}
 		defer sb.Close()
 
-		// Execute code
-		result, err := sb.ExecuteCode(args.Code)
+		// Step 3: Execute bundled code
+		result, err := sb.ExecuteCode(bundledCode, sourceMap)
 		if err != nil {
 			return nil, nil, fmt.Errorf("execution failed: %w", err)
 		}
