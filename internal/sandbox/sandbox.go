@@ -23,12 +23,12 @@ type ExecuteCodeResult struct {
 	Result string
 }
 
-// NewSandbox creates a new sandbox instance
-func NewSandbox(ctx context.Context, wasmPath string, clientHub *client.McpClientHub) (*Sandbox, error) {
+// NewSandbox creates a new sandbox instance from WASM bytes
+func NewSandbox(ctx context.Context, wasmBytes []byte, clientHub *client.McpClientHub) (*Sandbox, error) {
 	manifest := extism.Manifest{
 		Wasm: []extism.Wasm{
-			extism.WasmFile{
-				Path: wasmPath,
+			extism.WasmData{
+				Data: wasmBytes,
 			},
 		},
 	}

@@ -16,8 +16,9 @@ type Config struct {
 
 // ServerConfig contains HTTP server settings
 type ServerConfig struct {
-	Port    int `json:"port,omitempty"`
-	Timeout int `json:"timeout,omitempty"` // in seconds
+	Port     int    `json:"port,omitempty"`
+	Timeout  int    `json:"timeout,omitempty"`  // in seconds
+	WasmPath string `json:"wasmPath,omitempty"` // Optional path to sandbox WASM file (defaults to embedded)
 }
 
 // McpServerConfig is the interface for all MCP server configurations
@@ -326,4 +327,12 @@ func (c *Config) GetServerTimeout() int {
 		return c.Server.Timeout
 	}
 	return 30 // Default 30 seconds
+}
+
+// GetWasmPath returns the configured WASM path, or empty string to use embedded
+func (c *Config) GetWasmPath() string {
+	if c.Server != nil {
+		return c.Server.WasmPath
+	}
+	return ""
 }

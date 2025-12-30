@@ -31,7 +31,7 @@ type ReadFileArgs struct {
 }
 
 // NewMcpServer creates and configures the MCP server
-func NewMcpServer(sessionMgr *session.Manager) *mcp.Server {
+func NewMcpServer(wasmBytes []byte, sessionMgr *session.Manager) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "codebraid-mcp",
 		Version: "1.0.0",
@@ -165,7 +165,7 @@ exec();
 		}
 
 		// Step 2: Create sandbox
-		sb, err := sandbox.NewSandbox(ctx, "./wasm/dist/sandbox.wasm", sessionCtx.ClientHub)
+		sb, err := sandbox.NewSandbox(ctx, wasmBytes, sessionCtx.ClientHub)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create sandbox: %w", err)
 		}
