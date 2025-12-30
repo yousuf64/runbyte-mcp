@@ -12,36 +12,8 @@ import (
 	"github.com/yousuf/codebraid-mcp/internal/client"
 	"github.com/yousuf/codebraid-mcp/internal/codegen"
 	"github.com/yousuf/codebraid-mcp/internal/config"
+	"github.com/yousuf/codebraid-mcp/internal/strutil"
 )
-
-// toCamelCase converts snake_case or kebab-case to camelCase
-func toCamelCase(s string) string {
-	if len(s) == 0 {
-		return s
-	}
-
-	// If already camelCase or PascalCase (no underscores/dashes/spaces), just ensure first char is lowercase
-	if !strings.ContainsAny(s, "_- ") {
-		return strings.ToLower(s[0:1]) + s[1:]
-	}
-
-	// Split by underscore, dash, or space
-	parts := strings.FieldsFunc(s, func(r rune) bool {
-		return r == '_' || r == '-' || r == ' '
-	})
-
-	for i, part := range parts {
-		if len(part) > 0 {
-			if i == 0 {
-				parts[i] = strings.ToLower(part)
-			} else {
-				parts[i] = strings.ToUpper(part[0:1]) + part[1:]
-			}
-		}
-	}
-
-	return strings.Join(parts, "")
-}
 
 func main() {
 	if err := run(); err != nil {
@@ -149,7 +121,7 @@ func run() error {
 
 		// Generate one file per function
 		for _, tool := range tools {
-			funcName := toCamelCase(tool.Name)
+			funcName := strutil.ToCamelCase(tool.Name)
 
 			content, err := generator.GenerateFunctionFile(serverName, tool)
 			if err != nil {

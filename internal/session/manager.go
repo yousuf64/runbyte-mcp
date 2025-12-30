@@ -6,34 +6,14 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/yousuf/codebraid-mcp/internal/bundler"
 	"github.com/yousuf/codebraid-mcp/internal/client"
 	"github.com/yousuf/codebraid-mcp/internal/codegen"
 	"github.com/yousuf/codebraid-mcp/internal/config"
+	"github.com/yousuf/codebraid-mcp/internal/strutil"
 )
-
-// toCamelCase converts snake_case to camelCase
-func toCamelCase(s string) string {
-	parts := strings.Split(s, "_")
-	if len(parts) == 0 {
-		return s
-	}
-
-	// First part stays lowercase
-	result := parts[0]
-
-	// Capitalize first letter of remaining parts
-	for _, part := range parts[1:] {
-		if len(part) > 0 {
-			result += strings.ToUpper(part[:1]) + part[1:]
-		}
-	}
-
-	return result
-}
 
 // Manager manages session contexts
 type Manager struct {
@@ -194,7 +174,7 @@ func (m *Manager) initializeSessionBundleDir(ctx context.Context, session *Sessi
 
 		// Generate a file for each tool/function
 		for _, tool := range tools {
-			functionName := toCamelCase(tool.Name)
+			functionName := strutil.ToCamelCase(tool.Name)
 			functionContent, err := generator.GenerateFunctionFile(serverName, tool)
 			if err != nil {
 				os.RemoveAll(bundleDir)
@@ -269,7 +249,7 @@ func regenerateLibForServer(session *SessionContext, serverName string) error {
 
 	// Generate a file for each tool/function
 	for _, tool := range tools {
-		functionName := toCamelCase(tool.Name)
+		functionName := strutil.ToCamelCase(tool.Name)
 		functionContent, err := generator.GenerateFunctionFile(serverName, tool)
 		if err != nil {
 			return fmt.Errorf("failed to generate function %s: %w", functionName, err)

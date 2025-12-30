@@ -87,9 +87,9 @@ func findRspack() (string, error) {
 	return "", fmt.Errorf("rspack executable not found")
 }
 
-// BundleWithSession bundles TypeScript code using a session's bundle directory
+// Bundle bundles TypeScript code using a session's bundle directory
 // This allows reuse of server library files across multiple requests in the same session
-func (b *Bundler) BundleWithSession(sessionBundleDir, code string) (js string, sourceMap string, err error) {
+func (b *Bundler) Bundle(sessionBundleDir, code string) (js string, sourceMap string, err error) {
 	// Create unique work directory for this request
 	workID, err := generateWorkID()
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	"github.com/yousuf/codebraid-mcp/internal/bundler"
 	"github.com/yousuf/codebraid-mcp/internal/sandbox"
 	"github.com/yousuf/codebraid-mcp/internal/session"
+	"github.com/yousuf/codebraid-mcp/internal/strutil"
 )
 
 // ExecuteCodeArgs represents the arguments for the execute_code tool
@@ -158,7 +159,7 @@ Runtime Environment:
 		codeWithCaller := fmt.Sprintf(`%s
 exec();
 `, args.Code)
-		bundledCode, sourceMap, err := b.BundleWithSession(sessionCtx.BundleDir, codeWithCaller)
+		bundledCode, sourceMap, err := b.Bundle(sessionCtx.BundleDir, codeWithCaller)
 		if err != nil {
 			return nil, nil, fmt.Errorf("bundling failed: %w", err)
 		}
@@ -249,7 +250,7 @@ exec();
 					prefix = "├──"
 				}
 
-				funcName := toCamelCase(tool.Name)
+				funcName := strutil.ToCamelCase(tool.Name)
 				if args.WithDescriptions && tool.Description != "" {
 					output.WriteString(fmt.Sprintf("%s %s.ts - %s\n", prefix, funcName, tool.Description))
 				} else {
@@ -297,42 +298,4 @@ exec();
 	})
 
 	return server
-}
-
-// TODO: Extract to util
-// toPascalCase converts a string to PascalCase
-func toPascalCase(s string) string {
-	// Split by underscore, dash, or space
-	parts := strings.FieldsFunc(s, func(r rune) bool {
-		return r == '_' || r == '-' || r == ' '
-	})
-
-	for i, part := range parts {
-		if len(part) > 0 {
-			parts[i] = strings.ToUpper(part[0:1]) + part[1:]
-		}
-	}
-
-	return strings.Join(parts, "")
-}
-
-// TODO: Extract to util
-// toCamelCase converts a string to camelCase
-// Handles: snake_case, kebab-case, space-separated, PascalCase, and already-camelCase
-func toCamelCase(s string) string {
-	if len(s) == 0 {
-		return s
-	}
-
-	// If already camelCase or PascalCase (no underscores/dashes/spaces), just ensure first char is lowercase
-	if !strings.ContainsAny(s, "_- ") {
-		return strings.ToLower(s[0:1]) + s[1:]
-	}
-
-	// Otherwise, convert from snake_case/kebab-case/space-separated to camelCase
-	pascal := toPascalCase(s)
-	if len(pascal) == 0 {
-		return pascal
-	}
-	return strings.ToLower(pascal[0:1]) + pascal[1:]
 }

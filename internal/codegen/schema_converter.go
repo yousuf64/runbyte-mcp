@@ -3,6 +3,8 @@ package codegen
 import (
 	"fmt"
 	"strings"
+
+	"github.com/yousuf/codebraid-mcp/internal/strutil"
 )
 
 // SchemaConverter converts JSON Schema to TypeScript types
@@ -205,7 +207,7 @@ func (sc *SchemaConverter) convertObject(schema map[string]interface{}, typeName
 			continue
 		}
 
-		propTypeName := typeName + toPascalCase(propName)
+		propTypeName := typeName + strutil.ToPascalCase(propName)
 		propType, err := sc.ConvertSchema(propSchemaMap, propTypeName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert property %q: %w", propName, err)
@@ -394,29 +396,4 @@ func (sc *SchemaConverter) typeToString(t *TSType) string {
 	default:
 		return "any"
 	}
-}
-
-// toPascalCase converts a string to PascalCase
-func toPascalCase(s string) string {
-	// Split by underscore or dash
-	parts := strings.FieldsFunc(s, func(r rune) bool {
-		return r == '_' || r == '-'
-	})
-
-	for i, part := range parts {
-		if len(part) > 0 {
-			parts[i] = strings.ToUpper(part[0:1]) + part[1:]
-		}
-	}
-
-	return strings.Join(parts, "")
-}
-
-// toCamelCase converts a string to camelCase
-func toCamelCase(s string) string {
-	pascal := toPascalCase(s)
-	if len(pascal) == 0 {
-		return pascal
-	}
-	return strings.ToLower(pascal[0:1]) + pascal[1:]
 }

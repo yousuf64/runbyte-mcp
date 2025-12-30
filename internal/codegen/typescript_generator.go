@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/yousuf/codebraid-mcp/internal/strutil"
 )
 
 // TypeScriptGenerator generates TypeScript files from tool definitions
@@ -39,7 +40,7 @@ func (g *TypeScriptGenerator) GenerateFunctionFile(serverName string, tool *mcp.
 	argsTypeName := ""
 	if tool.InputSchema != nil {
 		if inputSchema, ok := tool.InputSchema.(map[string]interface{}); ok && len(inputSchema) > 0 {
-			argsTypeName = toPascalCase(tool.Name) + "Args"
+			argsTypeName = strutil.ToPascalCase(tool.Name) + "Args"
 			argsType, err := g.converter.ConvertSchema(inputSchema, argsTypeName)
 			if err != nil {
 				return "", fmt.Errorf("failed to convert input schema for %q: %w", tool.Name, err)
@@ -49,7 +50,7 @@ func (g *TypeScriptGenerator) GenerateFunctionFile(serverName string, tool *mcp.
 	}
 
 	// Generate result interface if outputSchema exists
-	returnType := toPascalCase(tool.Name) + "Result"
+	returnType := strutil.ToPascalCase(tool.Name) + "Result"
 	if tool.OutputSchema != nil {
 		if outputSchema, ok := tool.OutputSchema.(map[string]interface{}); ok && len(outputSchema) > 0 {
 			resultType, err := g.converter.ConvertSchema(outputSchema, returnType)
@@ -80,7 +81,7 @@ func (g *TypeScriptGenerator) GenerateFunctionFile(serverName string, tool *mcp.
 
 	// Generate function
 	function := &TSFunction{
-		Name:         toCamelCase(tool.Name),
+		Name:         strutil.ToCamelCase(tool.Name),
 		Description:  tool.Description,
 		ServerName:   serverName,
 		ToolName:     tool.Name,
@@ -89,88 +90,6 @@ func (g *TypeScriptGenerator) GenerateFunctionFile(serverName string, tool *mcp.
 		HasArgs:      argsTypeName != "",
 	}
 	file.Functions = append(file.Functions, function)
-
-	// Collect all generated types (including nested ones)
-	g.collectNestedTypes(file)
-
-	return g.renderFile(file), nil
-}
-
-// GenerateFile generates a complete TypeScript file for a server's tools
-func (g *TypeScriptGenerator) GenerateFile(serverName string, tools []*mcp.Tool) (string, error) {
-	if len(tools) == 0 {
-		return "", fmt.Errorf("no tools provided for server %q", serverName)
-	}
-
-	// Reset converter for each file to avoid type name collisions across files
-	g.converter = NewSchemaConverter()
-
-	file := &TSFile{
-		ServerName: serverName,
-		Imports:    []string{},
-		Interfaces: []*TSType{},
-		Functions:  []*TSFunction{},
-	}
-
-	// Process each tool
-	for _, tool := range tools {
-		// Generate args interface if inputSchema exists
-		argsTypeName := ""
-		if tool.InputSchema != nil {
-			// Type assert to map[string]interface{} for schema conversion
-			if inputSchema, ok := tool.InputSchema.(map[string]interface{}); ok && len(inputSchema) > 0 {
-				argsTypeName = toPascalCase(tool.Name) + "Args"
-				argsType, err := g.converter.ConvertSchema(inputSchema, argsTypeName)
-				if err != nil {
-					return "", fmt.Errorf("failed to convert input schema for %q: %w", tool.Name, err)
-				}
-				file.Interfaces = append(file.Interfaces, argsType)
-			}
-		}
-
-		// Generate result interface if outputSchema exists
-		returnType := toPascalCase(tool.Name) + "Result"
-		if tool.OutputSchema != nil {
-			// Type assert to map[string]interface{} for schema conversion
-			if outputSchema, ok := tool.OutputSchema.(map[string]interface{}); ok && len(outputSchema) > 0 {
-				resultType, err := g.converter.ConvertSchema(outputSchema, returnType)
-				if err != nil {
-					return "", fmt.Errorf("failed to convert output schema for %q: %w", tool.Name, err)
-				}
-				file.Interfaces = append(file.Interfaces, resultType)
-			} else {
-				// OutputSchema present but not a valid map - create type alias
-				typeAlias := &TSType{
-					Kind:        "type",
-					Name:        returnType,
-					RawType:     "any",
-					Description: "No output schema defined - structure varies by implementation",
-				}
-				file.Interfaces = append(file.Interfaces, typeAlias)
-			}
-		} else {
-			// No outputSchema - create type alias
-			typeAlias := &TSType{
-				Kind:        "type",
-				Name:        returnType,
-				RawType:     "any",
-				Description: "No output schema defined - structure varies by implementation",
-			}
-			file.Interfaces = append(file.Interfaces, typeAlias)
-		}
-
-		// Generate function
-		function := &TSFunction{
-			Name:         toCamelCase(tool.Name),
-			Description:  tool.Description,
-			ServerName:   serverName,
-			ToolName:     tool.Name,
-			ArgsTypeName: argsTypeName,
-			ReturnType:   returnType,
-			HasArgs:      argsTypeName != "",
-		}
-		file.Functions = append(file.Functions, function)
-	}
 
 	// Collect all generated types (including nested ones)
 	g.collectNestedTypes(file)
@@ -375,7 +294,7 @@ func (g *TypeScriptGenerator) GenerateServerIndexFile(serverName string, tools [
 
 	// Export each function
 	for _, tool := range tools {
-		funcName := toCamelCase(tool.Name)
+		funcName := strutil.ToCamelCase(tool.Name)
 		sb.WriteString(fmt.Sprintf("export * from './%s';\n", funcName))
 	}
 
