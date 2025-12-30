@@ -17,6 +17,12 @@ type Sandbox struct {
 	ctx       context.Context
 }
 
+type ExecuteCodeResult struct {
+	Error  string
+	Stack  string
+	Result string
+}
+
 // NewSandbox creates a new sandbox instance
 func NewSandbox(ctx context.Context, wasmPath string, clientHub *client.McpClientHub) (*Sandbox, error) {
 	manifest := extism.Manifest{
@@ -61,32 +67,26 @@ func (s *Sandbox) ExecuteCode(bundledCode, sourceMap string) (string, error) {
 		return "", fmt.Errorf("plugin exited with code %d", exit)
 	}
 
-	var outputMap map[string]interface{}
-	err = json.Unmarshal(output, &outputMap)
+	var result ExecuteCodeResult
+	err = json.Unmarshal(output, &result)
 	if err != nil {
 		return "", fmt.Errorf("failed to unmarshal output: %w", err)
 	}
 
-	if errVal, ok := outputMap["error"]; ok && errVal != nil && errVal.(string) != "" {
-		if stackVal, ok := outputMap["stack"]; ok && stackVal != nil && stackVal.(string) != "" {
-			mappedStack, err := sourcemap.Map(sourceMap, stackVal.(string), true)
+	if result.Error != "" {
+		if result.Stack != "" {
+			mappedStack, err := sourcemap.Map(sourceMap, result.Stack, true)
 			if err != nil {
 				return "", fmt.Errorf("failed to map error stack trace: %w", err)
 			}
 
-			errorOutput := map[string]interface{}{
-				"error": errVal.(string),
-				"stack": mappedStack,
-			}
-			errorOutputJson, err := json.Marshal(errorOutput)
-			if err != nil {
-				return "", fmt.Errorf("failed to marshal error output: %w", err)
-			}
-			return string(errorOutputJson), err
+			return "", fmt.Errorf("failed to execute code\nerror:\n%s\nstack trace:\n%s", result.Error, mappedStack)
 		}
+
+		return "", fmt.Errorf("failed to execute code:\n%s", result.Error)
 	}
 
-	return string(output), nil
+	return result.Result, nil
 }
 
 // Close closes the sandbox and frees resources

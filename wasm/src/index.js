@@ -27,15 +27,19 @@ async function executeCode() {
             // Call host function
             const mem = Memory.fromString(JSON.stringify(msg));
             const offset = callMcpTool(mem.offset);
-            const response = Memory.find(offset).readString();
-            const result = JSON.parse(response);
+            const response = Memory.find(offset).readJsonObject();
 
             // Check if the call was successful
-            if (!result.success) {
-                throw new Error(result.error || "MCP call failed");
+            if (response.error) {
+                throw new Error(response.error);
             }
 
-            return result.result;
+            // Try to parse as JSON, fallback to raw string
+            try {
+                return JSON.parse(response.result);
+            } catch {
+                return response.result;
+            }
         }
 
         // Get user's code from input
@@ -47,16 +51,25 @@ async function executeCode() {
             const result = await eval(code);
 
             // Return result as JSON string
-            Host.outputString(result !== undefined ? JSON.stringify(result) : "");
+            Host.outputString(JSON.stringify({
+                error: null,
+                stack: null,
+                result: JSON.stringify(result)
+            }))
         } catch (error) {
             // Return error information
             Host.outputString(JSON.stringify({
                 error: error.message,
-                stack: error.stack
+                stack: error.stack,
+                result: null
             }));
         }
-    } catch (e) {
-        Host.outputString(e.message)
+    } catch (error) {
+        Host.outputString(JSON.stringify({
+            error: error.message,
+            stack: null,
+            result: null
+        }))
     }
 }
 

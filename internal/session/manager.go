@@ -227,14 +227,6 @@ func (m *Manager) initializeSessionBundleDir(ctx context.Context, session *Sessi
 		return fmt.Errorf("failed to write top-level index.ts: %w", err)
 	}
 
-	// Write mcp-types.ts
-	mcpTypesContent := generator.GenerateMCPTypesFile()
-	mcpTypesPath := filepath.Join(serversDir, "mcp-types.ts")
-	if err := os.WriteFile(mcpTypesPath, []byte(mcpTypesContent), 0644); err != nil {
-		os.RemoveAll(bundleDir)
-		return fmt.Errorf("failed to write mcp-types.ts: %w", err)
-	}
-
 	// Write rspack config
 	rspackConfigPath := filepath.Join(bundleDir, "rspack.config.ts")
 	rspackConfig := bundler.GetEmbeddedConfig()

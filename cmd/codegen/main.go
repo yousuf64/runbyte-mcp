@@ -177,16 +177,6 @@ func run() error {
 		totalFunctions += len(tools)
 	}
 
-	// Generate mcp-types.ts
-	if *verbose {
-		fmt.Println("\nGenerating mcp-types.ts...")
-	}
-	mcpTypesContent := generator.GenerateMCPTypesFile()
-	mcpTypesPath := filepath.Join(*outputDir, "mcp-types.ts")
-	if err := os.WriteFile(mcpTypesPath, []byte(mcpTypesContent), 0644); err != nil {
-		return fmt.Errorf("failed to write mcp-types.ts: %w", err)
-	}
-
 	// Generate top-level index.ts
 	if *verbose {
 		fmt.Println("Generating index.ts...")

@@ -3,6 +3,7 @@ package sandbox
 import (
 	"context"
 	"encoding/json"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	extism "github.com/extism/go-sdk"
 )
@@ -16,9 +17,8 @@ type McpToolCall struct {
 
 // McpToolResponse represents the response from an MCP tool call
 type McpToolResponse struct {
-	Success bool        `json:"success"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   string      `json:"error,omitempty"`
+	Result string `json:"result"`
+	Error  string `json:"error"`
 }
 
 // createCallMcpToolHostFunc creates the host function for calling MCP tools
@@ -37,7 +37,7 @@ func createCallMcpToolHostFunc(sb *Sandbox) extism.HostFunction {
 
 			// Parse tool call request
 			var toolCall McpToolCall
-			if err := json.Unmarshal(inputData, &toolCall); err != nil {
+			if err = json.Unmarshal(inputData, &toolCall); err != nil {
 				plugin.Logf(extism.LogLevelError, "Failed to parse tool call: %v", err)
 				writeErrorResponse(plugin, stack, "Invalid tool call format")
 				return
@@ -64,18 +64,22 @@ func createCallMcpToolHostFunc(sb *Sandbox) extism.HostFunction {
 			}
 
 			// Prepare response
-			response := McpToolResponse{
-				Success: err == nil,
-			}
+			response := McpToolResponse{}
 
 			if err != nil {
 				response.Error = err.Error()
 				plugin.Logf(extism.LogLevelError, "MCP call failed: %v", err)
+			} else if result.IsError {
+				errMsg := getTextContent(result.Content)
+				response.Error = errMsg
+
+				plugin.Logf(extism.LogLevelInfo, "MCP call returned an error: %s", errMsg)
 			} else {
-				if result.StructuredContent == nil {
-					response.Result = result
+				if result.StructuredContent != nil {
+					structured, _ := json.Marshal(result.StructuredContent)
+					response.Result = string(structured)
 				} else {
-					response.Result = result.StructuredContent
+					response.Result = getTextContent(result.Content)
 				}
 
 				plugin.Log(extism.LogLevelInfo, "MCP call succeeded")
@@ -98,11 +102,20 @@ func createCallMcpToolHostFunc(sb *Sandbox) extism.HostFunction {
 	)
 }
 
+func getTextContent(contentList []mcp.Content) string {
+	for _, content := range contentList {
+		if textContent, ok := content.(*mcp.TextContent); ok {
+			return textContent.Text
+		}
+	}
+
+	return ""
+}
+
 // writeErrorResponse writes an error response to the plugin
 func writeErrorResponse(plugin *extism.CurrentPlugin, stack []uint64, errorMsg string) {
 	response := McpToolResponse{
-		Success: false,
-		Error:   errorMsg,
+		Error: errorMsg,
 	}
 	responseData, _ := json.Marshal(response)
 	responseOffset, err := plugin.WriteBytes(responseData)

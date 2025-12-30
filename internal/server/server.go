@@ -26,7 +26,7 @@ type ListDirectoryArgs struct {
 
 // ReadFileArgs represents the arguments for the read_file tool
 type ReadFileArgs struct {
-	Path string `json:"path" jsonschema:"Required. Path to file in virtual filesystem (e.g., '/servers/github/listRepos.ts', '/servers/github/index.ts', '/servers/mcp-types.ts')"`
+	Path string `json:"path" jsonschema:"Required. Path to file in virtual filesystem (e.g., '/servers/github/listRepos.ts', '/servers/github/index.ts')"`
 }
 
 // NewMcpServer creates and configures the MCP server
@@ -220,11 +220,10 @@ exec();
 				serverCount++
 				prefix := "├──"
 				if serverCount == len(allTools) {
-					prefix = "├──"
+					prefix = "└──"
 				}
 				output.WriteString(fmt.Sprintf("%s %s/ (%d functions)\n", prefix, svr, len(toolList)))
 			}
-			output.WriteString("└── mcp-types.ts\n")
 
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{
@@ -271,7 +270,7 @@ exec();
 	// Register read_file tool
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "read_file",
-		Description: "Read a file from the virtual filesystem using absolute paths (e.g., '/servers/github/listRepos.ts', '/servers/github/index.ts', '/servers/mcp-types.ts').",
+		Description: "Read a file from the virtual filesystem using absolute paths (e.g., '/servers/github/listRepos.ts', '/servers/github/index.ts').",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args ReadFileArgs) (*mcp.CallToolResult, any, error) {
 		sessionCtx, err := getSessionFromContext(ctx)
 		if err != nil {
