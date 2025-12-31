@@ -1,0 +1,55 @@
+# Ignore everything by default
+**
+
+# Allow specific files/directories needed for Docker build
+!Dockerfile
+!docker-compose.yml
+!.dockerignore
+!Makefile
+!go.mod
+!go.sum
+!codebraid.json.example
+
+# Go source
+!cmd/
+!internal/
+!pkg/
+
+# Keep WASM source and dist
+!pkg/wasm/src/
+!pkg/wasm/dist/
+!pkg/wasm/package.json
+!pkg/wasm/esbuild.js
+!pkg/wasm/tsconfig.json
+
+# Exclude build artifacts from pkg/wasm
+pkg/wasm/node_modules/
+pkg/wasm/dist/*.js
+pkg/wasm/dist/*.map
+pkg/wasm/package-lock.json
+
+# Exclude test files
+**/*_test.go
+**/testdata/
+
+# Exclude documentation
+*.md
+!README.md
+
+# Exclude IDE and OS files
+.git/
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+
+# Exclude build outputs
+codebraid
+codegen
+*.exe
+
+# Exclude example directories
+examples/
+
+# Exclude test and run scripts
+*.sh

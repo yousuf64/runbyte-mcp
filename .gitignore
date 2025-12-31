@@ -1,5 +1,6 @@
 # Binaries
 codebraid-mcp
+codebraid
 *.exe
 *.dll
 *.so
@@ -39,4 +40,13 @@ config.json
 
 # Logs
 *.log
+
+# WASM build artifacts
+pkg/wasm/node_modules/
+pkg/wasm/dist/*.js
+pkg/wasm/dist/*.map
+pkg/wasm/package-lock.json
+
+# Keep the actual WASM file for embedding
+!pkg/wasm/dist/sandbox.wasm
 
