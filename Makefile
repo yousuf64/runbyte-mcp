@@ -5,9 +5,9 @@ all: build
 
 # Build everything
 build: wasm
-	@echo "Building CodeBraid MCP server..."
-	go build -o codebraid ./cmd/codebraid
-	@echo "✓ Build complete: ./codebraid"
+	@echo "Building Runbyte server..."
+	go build -o runbyte ./cmd/runbyte
+	@echo "✓ Build complete: ./runbyte"
 
 # Build WASM sandbox
 wasm:
@@ -17,9 +17,9 @@ wasm:
 
 # Install the binary to GOPATH/bin
 install: build
-	@echo "Installing codebraid..."
-	go install ./cmd/codebraid
-	@echo "✓ Installed to $(shell go env GOPATH)/bin/codebraid"
+	@echo "Installing Runbyte..."
+	go install ./cmd/runbyte
+	@echo "✓ Installed to $(shell go env GOPATH)/bin/runbyte"
 
 # Build codegen tool
 codegen:
@@ -30,7 +30,7 @@ codegen:
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
-	rm -f codebraid codegen
+	rm -f runbyte codegen
 	rm -rf pkg/wasm/node_modules
 	rm -f pkg/wasm/dist/*.js pkg/wasm/dist/*.map
 	go clean
@@ -43,25 +43,25 @@ test:
 
 # Run with default config
 run: build
-	./codebraid -config codebraid.json
+	./runbyte -config runbyte.json
 
 # Run in stdio mode
 run-stdio: build
-	./codebraid -transport stdio -config codebraid.json
+	./runbyte -transport stdio -config runbyte.json
 
 # Run in http mode
 run-http: build
-	./codebraid -transport http -port 3000 -config codebraid.json
+	./runbyte -transport http -port 3000 -config runbyte.json
 
 # Docker targets
 docker-build:
 	@echo "Building Docker image..."
-	docker build -t codebraid-mcp:latest .
-	@echo "✓ Docker image built: codebraid-mcp:latest"
+	docker build -t runbyte:latest .
+	@echo "✓ Docker image built: runbyte:latest"
 
 docker-run: docker-build
 	@echo "Running Docker container..."
-	docker run -p 3000:3000 -v $(PWD)/codebraid.json:/etc/codebraid/config.json:ro codebraid-mcp:latest
+	docker run -p 3000:3000 -v $(PWD)/runbyte.json:/etc/runbyte/config.json:ro runbyte:latest
 
 docker-up:
 	@echo "Starting with docker-compose..."
@@ -78,14 +78,14 @@ docker-logs:
 
 # Show help
 help:
-	@echo "CodeBraid MCP Makefile"
+	@echo "Runbyte Makefile"
 	@echo ""
 	@echo "Usage:"
 	@echo "  make                Build everything (wasm + go binary)"
-	@echo "  make build          Build CodeBraid server"
+	@echo "  make build          Build Runbyte server"
 	@echo "  make wasm           Build WASM sandbox only"
 	@echo "  make codegen        Build codegen tool"
-	@echo "  make install        Install codebraid to GOPATH/bin"
+	@echo "  make install        Install Runbyte to GOPATH/bin"
 	@echo "  make clean          Remove build artifacts"
 	@echo "  make test           Run tests"
 	@echo "  make run            Run server with default config"

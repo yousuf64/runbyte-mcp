@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/yousuf/codebraid-mcp/internal/bundler"
-	"github.com/yousuf/codebraid-mcp/internal/client"
-	"github.com/yousuf/codebraid-mcp/internal/codegen"
-	"github.com/yousuf/codebraid-mcp/internal/config"
-	"github.com/yousuf/codebraid-mcp/internal/strutil"
+	"github.com/yousuf/runbyte/internal/bundler"
+	"github.com/yousuf/runbyte/internal/client"
+	"github.com/yousuf/runbyte/internal/codegen"
+	"github.com/yousuf/runbyte/internal/config"
+	"github.com/yousuf/runbyte/internal/strutil"
 )
 
 // Manager manages session contexts
@@ -146,7 +146,7 @@ func (m *Manager) CloseAll() error {
 // initializeSessionBundleDir creates the bundle directory and writes library files
 func (m *Manager) initializeSessionBundleDir(ctx context.Context, session *SessionContext) error {
 	// Create persistent bundle directory for this session
-	bundleDir, err := os.MkdirTemp("", fmt.Sprintf("codebraid-%s-", session.SessionID))
+	bundleDir, err := os.MkdirTemp("", fmt.Sprintf("runbyte-%s-", session.SessionID))
 	if err != nil {
 		return fmt.Errorf("failed to create bundle dir: %w", err)
 	}

@@ -1,5 +1,5 @@
 /**
- * CodeBraid MCP JavaScript Plugin
+ * Runbyte JavaScript Plugin
  *
  * This plugin runs user code in a WebAssembly sandbox with access to
  * downstream MCP tools via the callMcpTool function.

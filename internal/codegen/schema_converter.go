@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yousuf/codebraid-mcp/internal/strutil"
+	"github.com/yousuf/runbyte/internal/strutil"
 )
 
 // SchemaConverter converts JSON Schema to TypeScript types

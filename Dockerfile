@@ -1,4 +1,4 @@
-# Multi-stage build for CodeBraid MCP Server
+# Multi-stage build for Runbyte Server
 # Stage 1: Build WASM sandbox
 FROM node:20-alpine AS wasm-builder
 
@@ -47,7 +47,7 @@ COPY . .
 COPY --from=wasm-builder /build/pkg/wasm/dist/sandbox.wasm ./pkg/wasm/dist/sandbox.wasm
 
 # Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o codebraid ./cmd/codebraid
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o runbyte ./cmd/runbyte
 
 # Stage 3: Runtime image
 FROM node:20-alpine
@@ -59,25 +59,25 @@ RUN apk --no-cache add ca-certificates && \
 WORKDIR /app
 
 # Copy binary from builder
-COPY --from=go-builder /build/codebraid .
+COPY --from=go-builder /build/runbyte .
 
 # Copy example config
-COPY codebraid.json.example ./codebraid.json.example
+COPY runbyte.json.example ./runbyte.json.example
 
 # Create directory for custom configs
-RUN mkdir -p /etc/codebraid
+RUN mkdir -p /etc/runbyte
 
 # Expose default HTTP port
 EXPOSE 3000
 
 # Set environment variables
-ENV CODEBRAID_CONFIG=/etc/codebraid/config.json
-ENV CODEBRAID_PORT=3000
+ENV RUNBYTE_CONFIG=/etc/runbyte/config.json
+ENV RUNBYTE_PORT=3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 # Default to HTTP mode
-ENTRYPOINT ["/app/codebraid"]
+ENTRYPOINT ["/app/runbyte"]
 CMD ["-transport", "http"]

@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	extism "github.com/extism/go-sdk"
-	"github.com/yousuf/codebraid-mcp/internal/client"
-	"github.com/yousuf/codebraid-mcp/internal/sourcemap"
+	"github.com/yousuf/runbyte/internal/client"
+	"github.com/yousuf/runbyte/internal/sourcemap"
 )
 
 // Sandbox provides a WebAssembly execution environment for user code

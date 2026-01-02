@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/yousuf/codebraid-mcp/internal/bundler"
-	"github.com/yousuf/codebraid-mcp/internal/sandbox"
-	"github.com/yousuf/codebraid-mcp/internal/session"
-	"github.com/yousuf/codebraid-mcp/internal/strutil"
+	"github.com/yousuf/runbyte/internal/bundler"
+	"github.com/yousuf/runbyte/internal/sandbox"
+	"github.com/yousuf/runbyte/internal/session"
+	"github.com/yousuf/runbyte/internal/strutil"
 )
 
 // ExecuteCodeArgs represents the arguments for the execute_code tool
@@ -33,13 +33,13 @@ type ReadFileArgs struct {
 // NewMcpServer creates and configures the MCP server
 func NewMcpServer(wasmBytes []byte, sessionMgr *session.Manager) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
-		Name:    "codebraid-mcp",
+		Name:    "runbyte",
 		Version: "1.0.0",
 	}, &mcp.ServerOptions{
 		Instructions: `
 TypeScript Code Execution with Virtual Filesystem
 
-CodeBraid provides a virtual filesystem where MCP servers are translated into TypeScript libraries.
+Runbyte provides a virtual filesystem where MCP servers are translated into TypeScript libraries.
 All files are accessible via absolute paths starting with '/'.
 
 Virtual Filesystem Structure:

@@ -1,4 +1,4 @@
-module github.com/yousuf/codebraid-mcp
+module github.com/yousuf/runbyte
 
 go 1.24.5
 

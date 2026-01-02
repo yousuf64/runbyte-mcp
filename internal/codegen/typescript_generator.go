@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/yousuf/codebraid-mcp/internal/strutil"
+	"github.com/yousuf/runbyte/internal/strutil"
 )
 
 // TypeScriptGenerator generates TypeScript files from tool definitions

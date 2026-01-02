@@ -53,10 +53,10 @@ type LoadOptions struct {
 func DefaultSearchPaths() []string {
 	homeDir, _ := os.UserHomeDir()
 	return []string{
-		"codebraid.json",
-		filepath.Join(homeDir, ".config", "codebraid", "config.json"),
-		filepath.Join(homeDir, ".codebraid", "config.json"),
-		"/etc/codebraid/config.json",
+		"runbyte.json",
+		filepath.Join(homeDir, ".config", "runbyte", "config.json"),
+		filepath.Join(homeDir, ".runbyte", "config.json"),
+		"/etc/runbyte/config.json",
 	}
 }
 
@@ -155,19 +155,19 @@ func expandEnvVars(config *Config) {
 }
 
 // applyEnvOverrides allows environment variables to override config values
-// Uses os.Environ() to discover all CODEBRAID_SERVER_* variables
+// Uses os.Environ() to discover all RUNBYTE_SERVER_* variables
 //
 // Patterns:
 //
-//	CODEBRAID_SERVER_<NAME>_TYPE=stdio
-//	CODEBRAID_SERVER_<NAME>_COMMAND=node
-//	CODEBRAID_SERVER_<NAME>_ARGS=arg1,arg2
-//	CODEBRAID_SERVER_<NAME>_CWD=/path
-//	CODEBRAID_SERVER_<NAME>_URL=https://...
-//	CODEBRAID_SERVER_<NAME>_HEADER_<KEY>=value
-//	CODEBRAID_SERVER_<NAME>_ENV_<KEY>=value
+//	RUNBYTE_SERVER_<NAME>_TYPE=stdio
+//	RUNBYTE_SERVER_<NAME>_COMMAND=node
+//	RUNBYTE_SERVER_<NAME>_ARGS=arg1,arg2
+//	RUNBYTE_SERVER_<NAME>_CWD=/path
+//	RUNBYTE_SERVER_<NAME>_URL=https://...
+//	RUNBYTE_SERVER_<NAME>_HEADER_<KEY>=value
+//	RUNBYTE_SERVER_<NAME>_ENV_<KEY>=value
 func applyEnvOverrides(config *Config) {
-	const prefix = "CODEBRAID_SERVER_"
+	const prefix = "RUNBYTE_SERVER_"
 
 	for _, env := range os.Environ() {
 		parts := strings.SplitN(env, "=", 2)
@@ -181,7 +181,7 @@ func applyEnvOverrides(config *Config) {
 			continue
 		}
 
-		// Remove prefix: CODEBRAID_SERVER_GITHUB_URL -> GITHUB_URL
+		// Remove prefix: RUNBYTE_SERVER_GITHUB_URL -> GITHUB_URL
 		remainder := strings.TrimPrefix(key, prefix)
 		segments := strings.Split(remainder, "_")
 

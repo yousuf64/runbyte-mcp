@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/yousuf/codebraid-mcp/internal/bundler"
-	"github.com/yousuf/codebraid-mcp/internal/config"
-	"github.com/yousuf/codebraid-mcp/internal/server"
-	"github.com/yousuf/codebraid-mcp/internal/session"
-	"github.com/yousuf/codebraid-mcp/pkg/wasm"
+	"github.com/yousuf/runbyte/internal/bundler"
+	"github.com/yousuf/runbyte/internal/config"
+	"github.com/yousuf/runbyte/internal/server"
+	"github.com/yousuf/runbyte/internal/session"
+	"github.com/yousuf/runbyte/pkg/wasm"
 )
 
 // getWasmBytes returns WASM bytes, preferring config path over embedded
@@ -38,7 +38,7 @@ func getWasmBytes(cfg *config.Config) ([]byte, error) {
 }
 
 func runStdioServer(wasmBytes []byte, sessionMgr *session.Manager) {
-	log.Println("CodeBraid MCP server running in stdio mode")
+	log.Println("Runbyte server running in stdio mode")
 
 	// Create MCP server
 	mcpServer := server.NewMcpServer(wasmBytes, sessionMgr)
@@ -105,7 +105,7 @@ func runHttpServer(cfg *config.Config, wasmBytes []byte, sessionMgr *session.Man
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("CodeBraid MCP server listening on port %d", port)
+		log.Printf("Runbyte server listening on port %d", port)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed: %v", err)
 		}
@@ -137,7 +137,7 @@ func runHttpServer(cfg *config.Config, wasmBytes []byte, sessionMgr *session.Man
 func main() {
 	// Parse command-line flags
 	var (
-		configPath    = flag.String("config", os.Getenv("CODEBRAID_CONFIG"), "Path to configuration file")
+		configPath    = flag.String("config", os.Getenv("RUNBYTE_CONFIG"), "Path to configuration file")
 		portFlag      = flag.Int("port", 0, "HTTP server port (overrides config file)")
 		transportMode = flag.String("transport", "http", "Transport mode: stdio or http")
 		help          = flag.Bool("help", false, "Show usage information")
@@ -156,7 +156,7 @@ func main() {
 		AllowEnvOverrides: true,
 	})
 	if err != nil {
-		log.Fatalf("Failed to load config: %v\n\nHint: Specify a config file with -config flag or CODEBRAID_CONFIG env var", err)
+		log.Fatalf("Failed to load config: %v\n\nHint: Specify a config file with -config flag or RUNBYTE_CONFIG env var", err)
 	}
 
 	log.Printf("Loaded configuration with %d MCP server(s)", len(cfg.McpServers))
@@ -184,7 +184,7 @@ func main() {
 		// Determine server port (priority: flag > env > config > default)
 		port := *portFlag
 		if port == 0 {
-			if envPort := os.Getenv("CODEBRAID_PORT"); envPort != "" {
+			if envPort := os.Getenv("RUNBYTE_PORT"); envPort != "" {
 				fmt.Sscanf(envPort, "%d", &port)
 			}
 		}

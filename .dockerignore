@@ -8,7 +8,7 @@
 !Makefile
 !go.mod
 !go.sum
-!codebraid.json.example
+!runbyte.json.example
 
 # Go source
 !cmd/
@@ -44,7 +44,7 @@ pkg/wasm/package-lock.json
 .DS_Store
 
 # Exclude build outputs
-codebraid
+runbyte
 codegen
 *.exe
 

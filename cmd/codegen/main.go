@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/yousuf/codebraid-mcp/internal/client"
-	"github.com/yousuf/codebraid-mcp/internal/codegen"
-	"github.com/yousuf/codebraid-mcp/internal/config"
-	"github.com/yousuf/codebraid-mcp/internal/strutil"
+	"github.com/yousuf/runbyte/internal/client"
+	"github.com/yousuf/runbyte/internal/codegen"
+	"github.com/yousuf/runbyte/internal/config"
+	"github.com/yousuf/runbyte/internal/strutil"
 )
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 
 func run() error {
 	// Parse flags
-	configPath := flag.String("config", os.Getenv("CODEBRAID_CONFIG"), "Path to config file")
+	configPath := flag.String("config", os.Getenv("RUNBYTE_CONFIG"), "Path to config file")
 	outputDir := flag.String("output-dir", "./generated", "Directory to write TypeScript files")
 	serverFilter := flag.String("server", "", "Generate only for specific server(s), comma-separated")
 	verbose := flag.Bool("verbose", false, "Enable verbose output")
@@ -42,7 +42,7 @@ func run() error {
 		AllowEnvOverrides: true,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w\n\nHint: Specify a config file with -config flag or CODEBRAID_CONFIG env var", err)
+		return fmt.Errorf("failed to load config: %w\n\nHint: Specify a config file with -config flag or RUNBYTE_CONFIG env var", err)
 	}
 
 	// Create McpClientHub and connect to MCP servers

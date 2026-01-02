@@ -1,6 +1,5 @@
 # Binaries
-codebraid-mcp
-codebraid
+runbyte
 *.exe
 *.dll
 *.so

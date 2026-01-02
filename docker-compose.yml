@@ -1,18 +1,18 @@
-# Docker Compose configuration for CodeBraid MCP
+# Docker Compose configuration for Runbyte
 version: '3.8'
 
 services:
-  codebraid:
+  runbyte:
     build: .
-    container_name: codebraid-mcp
+    container_name: runbyte
     ports:
       - "3000:3000"
     volumes:
       # Mount your config file
-      - ./codebraid.json:/etc/codebraid/config.json:ro
+      - ./runbyte.json:/etc/runbyte/config.json:ro
     environment:
-      - CODEBRAID_PORT=3000
-      - CODEBRAID_CONFIG=/etc/codebraid/config.json
+      - RUNBYTE_PORT=3000
+      - RUNBYTE_CONFIG=/etc/runbyte/config.json
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]

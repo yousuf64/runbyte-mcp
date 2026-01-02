@@ -1,5 +1,5 @@
 /**
- * Type definitions for CodeBraid MCP Plugin
+ * Type definitions for Runbyte Plugin
  */
 
 declare module "main" {

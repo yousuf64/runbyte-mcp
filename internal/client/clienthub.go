@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/yousuf/codebraid-mcp/internal/config"
+	"github.com/yousuf/runbyte/internal/config"
 )
 
 // McpClientHub manages multiple MCP client connections with lazy tool caching.

@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yousuf/codebraid-mcp/internal/client"
+	"github.com/yousuf/runbyte/internal/client"
 )
 
 // SessionContext represents a session with its associated resources and lifecycle.

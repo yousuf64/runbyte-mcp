@@ -8,7 +8,7 @@ import (
 	"os/exec"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/yousuf/codebraid-mcp/internal/config"
+	"github.com/yousuf/runbyte/internal/config"
 )
 
 // McpClient wraps an MCP client connection
@@ -66,7 +66,7 @@ func NewMcpClient(ctx context.Context, name string, cfg config.McpServerConfig, 
 
 	// Create MCP client with our configured options
 	client := mcp.NewClient(&mcp.Implementation{
-		Name:    "codebraid-mcp-client",
+		Name:    "runbyte-client",
 		Version: "1.0.0",
 	}, clientOpts)
 

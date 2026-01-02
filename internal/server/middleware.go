@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/yousuf/codebraid-mcp/internal/session"
+	"github.com/yousuf/runbyte/internal/session"
 )
 
 // sessionContextKey is the context key for storing session context
