@@ -53,7 +53,7 @@ Virtual Filesystem Structure:
 │   │   ├── readFile.ts
 │   │   ├── writeFile.ts
 │   │   └── index.ts
-│   └── mcp-types.ts
+│   └── index.ts
 └── (future: workspace/, config/, etc.)
 
 RECOMMENDED IMPORT PATTERN:
@@ -220,11 +220,9 @@ exec();
 			for svr, toolList := range allTools {
 				serverCount++
 				prefix := "├──"
-				if serverCount == len(allTools) {
-					prefix = "└──"
-				}
 				output.WriteString(fmt.Sprintf("%s %s/ (%d functions)\n", prefix, svr, len(toolList)))
 			}
+			output.WriteString("└── index.ts\n")
 
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{

@@ -138,10 +138,10 @@ The agent uses the `list_directory` tool:
 Response:
 ```
 /servers/
-  ├── filesystem/
-  ├── github/
-  ├── google-drive/
-  ├── slack/
+  ├── filesystem/ (14 functions)
+  ├── github/ (40 functions)
+  ├── google-drive/ (20 functions)
+  ├── slack/ (21 functions)
   └── index.ts
 ```
 
@@ -149,7 +149,7 @@ Response:
 
 Ask: "What tools does the GitHub server have?"
 
-The agent lists the github directory:
+The agent lists the `/servers/github` directory:
 ```json
 {
   "path": "/servers/github"
@@ -159,76 +159,43 @@ The agent lists the github directory:
 Response:
 ```
 /servers/github/
-  ├── listRepos.ts
-  ├── getIssues.ts
+  ├── listCommits.ts
+  ├── issueRead.ts
   ├── createPullRequest.ts
+  ├── createRepository.ts
   └── index.ts
 ```
 
-**3. Read a specific tool definition:**
+**3. Read a specific tool definition from the `filesystem` server:**
 
-The agent reads the `listRepos.ts` file to see its signature:
+The agent reads the `/servers/filesystem/readTextFile.ts` file to see its signature:
 ```json
 {
-  "path": "/servers/github/listRepos.ts"
+  "path": "/servers/filesystem/readTextFile.ts"
 }
 ```
 
 Response:
 ```typescript
-/**
- * Generated MCP tool definitions for: github
- * This file is auto-generated. Do not edit manually.
- */
+export interface ReadTextFileArgs {
+    path: string;
+    /** If provided, returns only the last N lines of the file */
+    tail?: number;
+    /** If provided, returns only the first N lines of the file */
+    head?: number;
+}
 
-/**
- * Arguments for listRepos
- */
-export interface ListReposArgs {
-  /** GitHub username or organization */
-  owner: string;
-  /** Filter by repository type */
-  type?: "all" | "owner" | "public" | "private" | "member";
-  /** Number of results per page */
-  per_page?: number;
+export interface ReadTextFileResult {
+    content: string;
 }
 
 /**
- * GitHub Repository information
- */
-export interface Repository {
-  /** Repository ID */
-  id: number;
-  /** Repository name */
-  name: string;
-  /** Full repository name including owner */
-  full_name: string;
-  /** Repository description */
-  description: string | null;
-  /** Whether the repository is private */
-  private: boolean;
-  /** Star count */
-  stargazers_count: number;
-  /** Fork count */
-  forks_count: number;
-  /** Repository URL */
-  html_url: string;
-  /** Default branch name */
-  default_branch: string;
-}
-
-/**
- * Result from listRepos
- */
-export type ListReposResult = Repository[];
-
-/**
- * List repositories for a user or organization
- * 
+ * Read the complete contents of a file from the file system as text. Handles various text encodings and provides detailed error messages if the file cannot be read. Use this tool when you need to examine the contents of a single file. Use the 'head' parameter to read only the first N lines of a file, or the 'tail' parameter to read only the last N lines of a file. Operates on the file as text regardless of extension. Only works within allowed directories.
+ *
  * Returns parsed response - structure depends on tool implementation.
  */
-export async function listRepos(args: ListReposArgs): Promise<ListReposResult> {
-  return await callTool("github", "listRepos", args);
+export async function readTextFile(args: ReadTextFileArgs): Promise<ReadTextFileResult> {
+    return await callTool("filesystem", "read_text_file", args);
 }
 ```
 

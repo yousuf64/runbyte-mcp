@@ -71,7 +71,7 @@ RUN mkdir -p /etc/runbyte
 EXPOSE 3000
 
 # Set environment variables
-ENV RUNBYTE_CONFIG=/etc/runbyte/config.json
+# ENV RUNBYTE_CONFIG=/etc/runbyte/config.json
 ENV RUNBYTE_PORT=3000
 
 # Health check
