@@ -1,6 +1,6 @@
 # Runbyte MCP
 
-A Model Context Protocol (MCP) server implementing the **code execution pattern** for efficient agent-tool interactions. Instead of calling MCP tools directly through the model's context, Runbyte enables AI agents to write and execute TypeScript code in a sandboxed environment. It automatically translates downstream MCP servers into typed TypeScript libraries accessible at `/servers/` in a virtual filesystem, allowing agents to discover tools on-demand, process data efficiently, and compose complex workflows all while dramatically reducing token consumption.
+A Model Context Protocol (MCP) server implementing the **code execution pattern** for efficient agent-tool interactions. Instead of calling MCP tools directly through the model's context, Runbyte enables AI agents to write and execute TypeScript code in a sandboxed environment. It automatically translates downstream MCP servers into typed TypeScript modules accessible at `/servers/` in a virtual filesystem, allowing agents to discover tools on-demand, process data efficiently, and compose complex workflows all while dramatically reducing token consumption.
 
 ## Key Features
 
@@ -52,7 +52,7 @@ Instead of loading 150,000 tokens of tool definitions, agents might load just 2,
 ## Requirements
 
 - **Docker** (recommended), or
-- **Go 1.21+** and **Node.js 18+** (for building from source)
+- **Go 1.21+**, **Node.js 18+** and **[extism-js compiler](https://github.com/extism/js-pdk?tab=readme-ov-file#install-the-compiler)** (for building from source)
 - **MCP client**: VS Code, Cursor, Windsurf, Claude Desktop, Goose, Zed, or any other MCP-compatible client
 
 ## Getting Started
@@ -108,7 +108,7 @@ This configuration works in most MCP clients and uses Docker with stdio transpor
         "-i",
         "--rm",
         "-v",
-        "${HOME}/.runbyte/config.json:/root/.runbyte/config.json",
+        "${env:HOME}/.runbyte/config.json:/root/.runbyte/config.json",
         "yousuf64/runbyte:latest",
         "-transport",
         "stdio"
@@ -275,7 +275,7 @@ Runbyte works with any MCP-compatible client. Choose your client below for speci
         "-i",
         "--rm",
         "-v",
-        "${HOME}/.runbyte/config.json:/root/.runbyte/config.json",
+        "${env:HOME}/.runbyte/config.json:/root/.runbyte/config.json",
         "yousuf64/runbyte:latest",
         "-transport",
         "stdio"
@@ -323,7 +323,7 @@ Then configure VS Code:
         "-i",
         "--rm",
         "-v",
-        "${HOME}/.runbyte/config.json:/root/.runbyte/config.json",
+        "${env:HOME}/.runbyte/config.json:/root/.runbyte/config.json",
         "yousuf64/runbyte:latest",
         "-transport",
         "stdio"
@@ -373,7 +373,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
         "-i",
         "--rm",
         "-v",
-        "${HOME}/.runbyte/config.json:/root/.runbyte/config.json",
+        "${env:HOME}/.runbyte/config.json:/root/.runbyte/config.json",
         "yousuf64/runbyte:latest",
         "-transport",
         "stdio"
@@ -421,7 +421,7 @@ Then configure Claude Desktop:
         "-i",
         "--rm",
         "-v",
-        "${HOME}/.runbyte/config.json:/root/.runbyte/config.json",
+        "${env:HOME}/.runbyte/config.json:/root/.runbyte/config.json",
         "yousuf64/runbyte:latest",
         "-transport",
         "stdio"
@@ -471,7 +471,7 @@ Add to your Goose configuration:
         "-i",
         "--rm",
         "-v",
-        "${HOME}/.runbyte/config.json:/root/.runbyte/config.json",
+        "${env:HOME}/.runbyte/config.json:/root/.runbyte/config.json",
         "yousuf64/runbyte:latest",
         "-transport",
         "stdio"
@@ -520,7 +520,7 @@ Runbyte works with any MCP-compatible client. Use the stdio configuration shown 
         "-i",
         "--rm",
         "-v",
-        "${HOME}/.runbyte/config.json:/root/.runbyte/config.json",
+        "${env:HOME}/.runbyte/config.json:/root/.runbyte/config.json",
         "yousuf64/runbyte:latest",
         "-transport",
         "stdio"
@@ -1142,9 +1142,9 @@ Runbyte acts as a bridge between AI agents and multiple MCP servers, providing a
 
 1. **Connect**: Runbyte connects to all MCP servers defined in your config file
 2. **Introspect**: It queries each server for available tools and their schemas
-3. **Generate**: Creates TypeScript libraries for each server at `/servers/` with full type information
+3. **Generate**: Creates TypeScript modules for each server at `/servers/` with full type information
 4. **Cache**: Stores generated code in a session-based cache for performance
-5. **Monitor**: Watches for tool changes and regenerates libraries automatically
+5. **Monitor**: Watches for tool changes and regenerates modules automatically
 6. **Execute**: Runs your TypeScript code in a secure WebAssembly sandbox
 7. **Route**: Routes function calls to the appropriate downstream MCP server
 8. **Return**: Collects results and returns them to your code
@@ -1162,12 +1162,12 @@ Runbyte acts as a bridge between AI agents and multiple MCP servers, providing a
 │   │   ├── readFile.ts
 │   │   ├── writeFile.ts
 │   │   └── index.ts
-│   └── index.ts             (Main server index)
+│   └── index.ts
 ```
 
 ### Session Caching
 
-Runbyte caches generated TypeScript libraries per session for optimal performance:
+Runbyte caches generated TypeScript modules per session for optimal performance:
 
 - Cache is created when a session starts
 - Automatically invalidated when downstream tools change
@@ -1176,303 +1176,40 @@ Runbyte caches generated TypeScript libraries per session for optimal performanc
 
 ## Architecture
 
-### System Overview
-
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      MCP Client                             │
-│              (VS Code / Cursor / Claude Desktop)            │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-                    stdio/HTTP/SSE transport
-                            │
-                            ▼
-┌──────────────────────────────────────────────────────────┐
-│                   Runbyte Server (Go)                    │
-│                                                          │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │            MCP Client Hub                          │  │
-│  │  • Manages connections to downstream MCP servers   │  │
-│  │  • Handles stdio/HTTP/SSE transports               │  │
-│  └──────────────────┬─────────────────────────────────┘  │
-│                     │                                    │
-│                     ▼                                    │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │         Code Generator (Codegen)                   │  │
-│  │  • Introspects MCP server tools                    │  │
-│  │  • Converts JSON schemas to TypeScript types       │  │
-│  │  • Generates typed function wrappers               │  │
-│  └──────────────────┬─────────────────────────────────┘  │
-│                     │                                    │
-│                     ▼                                    │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │      Virtual Filesystem (/servers/)                │  │
-│  │  • Stores generated TypeScript libraries           │  │
-│  │  • Provides list_directory and read_file tools     │  │
-│  │  • Session-based caching with invalidation         │  │
-│  └──────────────────┬─────────────────────────────────┘  │
-│                     │                                    │
-│                     ▼                                    │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │           Bundler (Rspack)                         │  │
-│  │  • Bundles user code with generated libraries      │  │
-│  │  • Resolves imports and dependencies               │  │
-│  │  • Produces single executable bundle               │  │
-│  └──────────────────┬─────────────────────────────────┘  │
-│                     │                                    │
-│                     ▼                                    │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │      WebAssembly Sandbox (QuickJS)                 │  │
-│  │  • Executes bundled TypeScript/JavaScript          │  │
-│  │  • Isolated execution environment                  │  │
-│  │  • 30-second timeout protection                    │  │
-│  │  • No filesystem or network access                 │  │
-│  └──────────────────┬─────────────────────────────────┘  │
-│                     │                                    │
-│                     │ Routes tool calls                  │
-│                     ▼                                    │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │          MCP Client Hub (routing)                  │  │
-│  └──────────────────┬─────────────────────────────────┘  │
-│                     │                                    │
-└─────────────────────┼────────────────────────────────────┘
+┌──────────────┐
+│  MCP Client  │  (VS Code / Cursor / Claude Desktop)
+└──────┬───────┘
+       │ stdio/HTTP/SSE
+       ▼
+┌─────────────────────────────────────────────────┐
+│              Runbyte Server                     │
+│                                                 │
+│  Agent Code → Bundler → WASM Sandbox           │
+│                  ↓           ↓                  │
+│            Virtual FS    MCP Tools              │
+│            /servers/    (isolated)              │
+└─────────────────────┬───────────────────────────┘
                       │
-        ┌─────────────┼─────────────┬──────────────┐
-        │             │             │              │
-        ▼             ▼             ▼              ▼
-   ┌─────────┐  ┌─────────┐  ┌─────────┐    ┌─────────┐
-   │ GitHub  │  │FileSys  │  │ Slack   │ ...│ Custom  │
-   │   MCP   │  │  MCP    │  │  MCP    │    │  MCP    │
-   └─────────┘  └─────────┘  └─────────┘    └─────────┘
+        ┌─────────────┼─────────────┐
+        ▼             ▼             ▼
+   ┌────────┐    ┌────────┐    ┌────────┐
+   │ GitHub │    │FileSys │    │ Slack  │  ...
+   │  MCP   │    │  MCP   │    │  MCP   │
+   └────────┘    └────────┘    └────────┘
 ```
 
-### Core Components
+Runbyte processes AI-generated code through five core components:
 
-#### MCP Client Hub
-**Purpose:** Manages connections to all downstream MCP servers
+1. **MCP Client Hub** - Manages connections to downstream MCP servers (stdio/HTTP/SSE)
+2. **Code Generator** - Introspects MCP tools and generates typed TypeScript modules
+3. **Virtual Filesystem** - Stores generated code at `/servers/` with session-based caching
+4. **Bundler (Rspack)** - Bundles user code with modules using ultra-fast SWC transpilation
+5. **WASM Sandbox (QuickJS)** - Executes code securely with 30s timeout and no host access
 
-**Responsibilities:**
-- Establishes and maintains connections to configured MCP servers
-- Supports multiple transport types: stdio (command/args), HTTP (url), SSE
-- Routes tool execution requests to appropriate servers
-- Handles connection lifecycle, reconnection, and error recovery
-- Manages concurrent requests across multiple servers
+The sandbox executes code in complete isolation—no filesystem, no network, no Node.js built-ins—routing all tool calls through validated MCP channels. This ensures secure, efficient execution while dramatically reducing context token consumption.
 
-#### Code Generator (Codegen)
-**Purpose:** Translates MCP tool schemas into TypeScript libraries
-
-**Responsibilities:**
-- Introspects each MCP server to discover available tools
-- Parses JSON schemas and converts them to TypeScript types
-- Generates type-safe function wrappers for each tool
-- Creates index files with all exports
-- Produces documentation comments from tool descriptions
-- Validates schema compatibility and handles edge cases
-
-**Output Example:**
-```typescript
-// /servers/github/listRepos.ts
-export async function listRepos(input: {
-  owner: string;
-  page?: number;
-}): Promise<Repository[]> {
-  return callMCPTool('github', 'listRepos', input);
-}
-```
-
-#### Virtual Filesystem
-**Purpose:** Provides discoverable access to generated TypeScript libraries
-
-**Responsibilities:**
-- Stores generated code in a hierarchical structure (`/servers/`)
-- Implements `list_directory` tool for filesystem exploration
-- Implements `read_file` tool for reading TypeScript source
-- Session-based caching for fast repeated access
-- Cache invalidation when downstream tools change
-- Serves as the discovery interface for AI agents
-
-**Structure:**
-```
-/servers/
-  ├── github/
-  │   ├── listRepos.ts
-  │   ├── getIssues.ts
-  │   └── index.ts
-  ├── filesystem/
-  │   └── index.ts
-  └── index.ts
-```
-
-#### Bundler (Rspack)
-**Purpose:** Bundles user code with generated libraries into executable form
-
-**Responsibilities:**
-- Resolves import statements from user code
-- Bundles all dependencies into a single file
-- Transpiles TypeScript to JavaScript using SWC (Speedy Web Compiler)
-- Performs tree-shaking and optimization
-- Produces code compatible with WASM sandbox
-- Generates source maps for debugging
-
-**Technology:**
-- **Rspack**: High-performance bundler written in Rust
-- **SWC**: Ultra-fast TypeScript/JavaScript compiler and transpiler
-- Provides near-instant bundling for fast execution cycles
-
-#### WASM Sandbox (QuickJS)
-**Purpose:** Securely executes user-provided TypeScript/JavaScript code
-
-**Responsibilities:**
-- Runs bundled code in isolated WebAssembly environment
-- Enforces 30-second execution timeout
-- Prevents access to Node.js built-ins (fs, net, etc.)
-- Blocks filesystem and network operations
-- Provides controlled access only to MCP tool calls
-- Returns execution results or errors
-
-**Security Features:**
-- No file system access
-- No network access (except via MCP tool calls)
-- Memory limits and execution timeout
-- Isolated from host system
-- Deterministic execution environment
-
-### Data Flows
-
-#### Flow 1: Tool Discovery & Code Generation
-
-```
-1. Runbyte starts → connects to MCP servers
-2. MCP servers → return tool list + schemas
-3. Code Generator → parses schemas
-4. Code Generator → generates TypeScript files
-5. Virtual Filesystem → stores generated code
-6. Cache → stores for session
-```
-
-**Example:**
-```
-GitHub MCP lists tools: [listRepos, getIssues, createPR]
-        ↓
-Code Generator creates:
-  /servers/github/listRepos.ts
-  /servers/github/getIssues.ts  
-  /servers/github/createPR.ts
-  /servers/github/index.ts
-        ↓
-Agent can list_directory("/servers/github")
-        ↓
-Agent can read_file("/servers/github/listRepos.ts")
-```
-
-#### Flow 2: Code Execution
-
-```
-1. Agent submits code via execute_code tool
-2. Bundler → resolves imports from /servers/
-3. Bundler → produces single JavaScript bundle
-4. WASM Sandbox → executes bundle
-5. Code calls MCP tools → routed via Client Hub
-6. Client Hub → forwards to appropriate MCP server
-7. MCP server → returns results
-8. Results → flow back to sandbox
-9. Sandbox → returns final result to agent
-```
-
-**Example:**
-```typescript
-// Agent's code
-import * as github from './servers/github';
-const repos = await github.listRepos({ owner: "octocat" });
-```
-
-**Execution path:**
-```
-Bundler resolves './servers/github' → /servers/github/index.ts
-        ↓
-WASM executes: github.listRepos(...)
-        ↓
-Sandbox calls: callMCPTool('github', 'listRepos', {...})
-        ↓
-Client Hub routes to GitHub MCP server
-        ↓
-GitHub MCP returns repository data
-        ↓
-Data flows back to sandbox
-        ↓
-Result returned to agent
-```
-
-#### Flow 3: Cache Invalidation & Updates
-
-```
-1. MCP server tool definitions change
-2. Notification sent to Runbyte (if supported)
-   OR detected on next introspection
-3. Session Manager → invalidates cache for that server
-4. Code Generator → regenerates TypeScript files
-5. Virtual Filesystem → updates with new code
-6. Next execution → uses updated definitions
-```
-
-### Transport Layer
-
-#### stdio Transport (Default)
-- Used by most MCP clients (VS Code, Cursor, etc.)
-- Bidirectional JSON-RPC over stdin/stdout
-- Process-to-process communication
-- Runbyte spawned as child process by client
-
-**Flow:**
-```
-MCP Client → spawns Runbyte process
-         → sends JSON-RPC via stdin
-         → receives JSON-RPC via stdout
-```
-
-#### HTTP Transport
-- Used when stdio isn't feasible
-- RESTful HTTP endpoints
-- Runbyte runs as standalone server
-- Client connects via HTTP
-
-**Flow:**
-```
-Runbyte Server → listens on port (e.g., 3000)
-MCP Client → sends HTTP POST with JSON-RPC
-          → receives HTTP response with result
-```
-
-#### Downstream MCP Servers
-- Runbyte connects to downstream servers via their configured transport
-- Supports stdio, HTTP, and SSE for downstream connections
-- Each server can use different transport type
-- Connection pooling for HTTP/SSE servers
-
-### Security Model
-
-**Sandbox Isolation:**
-- Code runs in WebAssembly sandbox (QuickJS)
-- No access to host filesystem
-- No direct network access
-- No Node.js built-in modules
-- Only controlled access via MCP tool calls
-
-**Resource Limits:**
-- 30-second execution timeout (configurable)
-- Memory limits enforced by WASM runtime
-- No infinite loops or resource exhaustion
-
-**Data Privacy:**
-- Intermediate data stays in execution environment
-- Only returned results enter model context
-- Sensitive data never exposed to agent unless explicitly returned
-
-**MCP Tool Access:**
-- All tool calls go through validated routing
-- Type safety enforced at TypeScript level
-- Schema validation on tool inputs
-- Error handling prevents sandbox escapes
+**For detailed architecture documentation including component responsibilities, data flows, transport layers, and security model, see [ARCHITECTURE.md](ARCHITECTURE.md).**
 
 ## Roadmap
 
@@ -1533,7 +1270,7 @@ docker run -i --rm \
 **Windows (PowerShell):**
 ```powershell
 docker run -i --rm `
-  -v ${HOME}/.runbyte/config.json:/app/runbyte.json `
+  -v ${env:HOME}/.runbyte/config.json:/app/runbyte.json `
   yousuf64/runbyte:latest -transport stdio
 ```
 
@@ -1569,7 +1306,7 @@ The default timeout is 30 seconds. For longer-running operations, increase the t
 
 Runbyte implements the code execution pattern described in Anthropic's research article ["Code execution with MCP: Building more efficient agents"](https://www.anthropic.com/engineering/code-execution-with-mcp). This approach enables agents to use context more efficiently by loading tools on-demand and processing data in a sandboxed environment, achieving up to 98.7% token reduction compared to traditional tool calling.
 
-Similar findings have been reported by [Cloudflare's "Code Mode"](https://blog.cloudflare.com/code-mode/) implementation. We're grateful to the [MCP community](https://modelcontextprotocol.io/community) for building the ecosystem that makes this possible.
+Similar findings have been reported by [Cloudflare's "Code Mode"](https://blog.cloudflare.com/code-mode/) implementation.
 
 ## License
 
