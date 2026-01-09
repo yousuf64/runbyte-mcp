@@ -12,6 +12,7 @@ import (
 	"github.com/yousuf/runbyte/internal/client"
 	"github.com/yousuf/runbyte/internal/codegen"
 	"github.com/yousuf/runbyte/internal/config"
+	"github.com/yousuf/runbyte/internal/sandbox"
 	"github.com/yousuf/runbyte/internal/strutil"
 )
 
@@ -66,6 +67,15 @@ func (m *Manager) GetOrCreateSession(ctx context.Context, sessionID string) (*Se
 		return nil, fmt.Errorf("failed to initialize session bundle directory: %w", err)
 	}
 
+	// Initialize SandboxFileSystem with multiple directories
+	if err := m.initializeSandboxFileSystem(session); err != nil {
+		clientHub.Close()
+		if session.BundleDir != "" {
+			os.RemoveAll(session.BundleDir)
+		}
+		return nil, fmt.Errorf("failed to initialize sandbox filesystem: %w", err)
+	}
+
 	// Setup automatic library regeneration when MCP servers notify of tool changes
 	clientHub.SetToolsRefreshedCallback(func(serverName string) {
 		log.Printf("Session %s: tools changed for server %q, regenerating libraries...", sessionID, serverName)
@@ -104,6 +114,13 @@ func (m *Manager) DeleteSession(sessionID string) error {
 		return fmt.Errorf("failed to close client hub: %w", err)
 	}
 
+	// Clean up sandbox filesystem
+	if session.SandboxFS != nil {
+		if err := session.SandboxFS.Cleanup(); err != nil {
+			log.Printf("Warning: failed to cleanup sandbox filesystem: %v", err)
+		}
+	}
+
 	// Clean up bundle directory
 	if session.BundleDir != "" {
 		if err := os.RemoveAll(session.BundleDir); err != nil {
@@ -124,6 +141,13 @@ func (m *Manager) CloseAll() error {
 	for sessionID, session := range m.sessions {
 		if err := session.ClientHub.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("session %q: %w", sessionID, err))
+		}
+
+		// Clean up sandbox filesystem
+		if session.SandboxFS != nil {
+			if err := session.SandboxFS.Cleanup(); err != nil {
+				log.Printf("Warning: failed to cleanup sandbox filesystem for session %s: %v", sessionID, err)
+			}
 		}
 
 		// Clean up bundle directory
@@ -215,6 +239,12 @@ func (m *Manager) initializeSessionBundleDir(ctx context.Context, session *Sessi
 		return fmt.Errorf("failed to write rspack config: %w", err)
 	}
 
+	// Generate @runbyte/fs stub
+	if err := generateFsStub(bundleDir); err != nil {
+		os.RemoveAll(bundleDir)
+		return fmt.Errorf("failed to generate @runbyte/fs stub: %w", err)
+	}
+
 	// Update session
 	session.BundleDir = bundleDir
 
@@ -268,5 +298,32 @@ func regenerateLibForServer(session *SessionContext, serverName string) error {
 		return fmt.Errorf("failed to write index.ts: %w", err)
 	}
 
+	return nil
+}
+
+// initializeSandboxFileSystem creates and configures the SandboxFileSystem for a session
+func (m *Manager) initializeSandboxFileSystem(session *SessionContext) error {
+	// Get base directory for session (same as bundle dir parent)
+	sessionBaseDir := filepath.Dir(session.BundleDir)
+
+	// Configure multiple directories
+	directories := []sandbox.DirectoryConfig{
+		{
+			Name:         "workspace",
+			Root:         filepath.Join(sessionBaseDir, "workspace"),
+			ReadOnly:     false,
+			MaxFileSize:  10 * 1024 * 1024, // 10MB per file
+			MaxFiles:     1000,
+			MaxTotalSize: 100 * 1024 * 1024, // 100MB total
+		},
+	}
+
+	// Create SandboxFileSystem
+	sfs, err := sandbox.NewSandboxFileSystem(directories)
+	if err != nil {
+		return fmt.Errorf("failed to create sandbox filesystem: %w", err)
+	}
+
+	session.SandboxFS = sfs
 	return nil
 }

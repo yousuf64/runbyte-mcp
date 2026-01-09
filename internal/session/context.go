@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/yousuf/runbyte/internal/client"
+	"github.com/yousuf/runbyte/internal/sandbox"
 )
 
 // SessionContext represents a session with its associated resources and lifecycle.
@@ -12,6 +13,7 @@ import (
 type SessionContext struct {
 	SessionID      string
 	ClientHub      *client.McpClientHub
+	SandboxFS      *sandbox.SandboxFileSystem
 	CreatedAt      time.Time
 	BundleDir      string // Persistent directory for libs and bundling workspace
 	lastAccessedAt time.Time

@@ -109,6 +109,13 @@ func (b *Bundler) Bundle(sessionBundleDir, code string) (js string, sourceMap st
 		return "", "", fmt.Errorf("failed to create servers symlink: %w", err)
 	}
 
+	// Symlink to shared builtin directory
+	builtinSrc := filepath.Join(sessionBundleDir, "builtin")
+	builtinDst := filepath.Join(workDir, "builtin")
+	if err := os.Symlink(builtinSrc, builtinDst); err != nil {
+		return "", "", fmt.Errorf("failed to create servers symlink: %w", err)
+	}
+
 	// Write user code
 	indexPath := filepath.Join(workDir, "index.ts")
 	if err := os.WriteFile(indexPath, []byte(code), 0644); err != nil {

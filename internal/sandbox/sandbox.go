@@ -12,9 +12,10 @@ import (
 
 // Sandbox provides a WebAssembly execution environment for user code
 type Sandbox struct {
-	plugin    *extism.Plugin
-	clientHub *client.McpClientHub
-	ctx       context.Context
+	plugin     *extism.Plugin
+	clientHub  *client.McpClientHub
+	ctx        context.Context
+	filesystem *SandboxFileSystem
 }
 
 type ExecuteCodeResult struct {
@@ -24,7 +25,7 @@ type ExecuteCodeResult struct {
 }
 
 // NewSandbox creates a new sandbox instance from WASM bytes
-func NewSandbox(ctx context.Context, wasmBytes []byte, clientHub *client.McpClientHub) (*Sandbox, error) {
+func NewSandbox(ctx context.Context, wasmBytes []byte, clientHub *client.McpClientHub, filesystem *SandboxFileSystem) (*Sandbox, error) {
 	manifest := extism.Manifest{
 		Wasm: []extism.Wasm{
 			extism.WasmData{
@@ -38,13 +39,17 @@ func NewSandbox(ctx context.Context, wasmBytes []byte, clientHub *client.McpClie
 	}
 
 	sb := &Sandbox{
-		clientHub: clientHub,
-		ctx:       ctx,
+		clientHub:  clientHub,
+		ctx:        ctx,
+		filesystem: filesystem,
 	}
 
-	// Create host functions
+	// Combine MCP and filesystem host functions
 	hostFunctions := []extism.HostFunction{
 		createCallMcpToolHostFunc(sb),
+	}
+	if filesystem != nil {
+		hostFunctions = append(hostFunctions, createWorkspaceHostFunctions(filesystem)...)
 	}
 
 	plugin, err := extism.NewPlugin(ctx, manifest, config, hostFunctions)

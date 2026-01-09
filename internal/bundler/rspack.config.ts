@@ -41,7 +41,10 @@ export default {
         ],
     },
     resolve: {
-        extensions: [".ts"]
+        extensions: [".ts"],
+        alias: {
+            '@runbyte/fs': './builtin/@runbyte/fs/index.ts'
+        }
     }
 };
 

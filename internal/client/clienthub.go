@@ -161,8 +161,17 @@ func (ch *McpClientHub) RefreshServerTools(ctx context.Context, serverName strin
 		return fmt.Errorf("failed to refresh tools for %q: %w", serverName, err)
 	}
 
+	// TODO: For now, remove tools that have the name of reserved JS keywords.
+	var filteredTools []*mcp.Tool
+	for _, tool := range toolsResult.Tools {
+		if tool.Name == "export" {
+			continue
+		}
+		filteredTools = append(filteredTools, tool)
+	}
+
 	// Update the client's cached tools
-	client.tools = toolsResult.Tools
+	client.tools = filteredTools
 
 	// Invalidate the hub's cached map
 	ch.cachedTools = nil
@@ -183,7 +192,17 @@ func (ch *McpClientHub) RefreshAllServerTools(ctx context.Context) error {
 			errs = append(errs, fmt.Errorf("server %q: %w", name, err))
 			continue
 		}
-		client.tools = toolsResult.Tools
+
+		// TODO: For now, remove tools that have the name of reserved JS keywords.
+		var filteredTools []*mcp.Tool
+		for _, tool := range toolsResult.Tools {
+			if tool.Name == "export" {
+				continue
+			}
+			filteredTools = append(filteredTools, tool)
+		}
+
+		client.tools = filteredTools
 	}
 
 	// Invalidate cache

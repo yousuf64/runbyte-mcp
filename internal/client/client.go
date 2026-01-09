@@ -98,10 +98,19 @@ func NewMcpClient(ctx context.Context, name string, cfg config.McpServerConfig, 
 		return nil, fmt.Errorf("failed to list tools: %w", err)
 	}
 
+	// TODO: For now, remove tools that have the name of reserved JS keywords.
+	var filteredTools []*mcp.Tool
+	for _, tool := range toolsResult.Tools {
+		if tool.Name == "export" {
+			continue
+		}
+		filteredTools = append(filteredTools, tool)
+	}
+
 	mcpClient := &McpClient{
 		name:           name,
 		session:        session,
-		tools:          toolsResult.Tools,
+		tools:          filteredTools,
 		onToolsChanged: onToolsChanged,
 	}
 

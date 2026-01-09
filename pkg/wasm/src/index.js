@@ -7,7 +7,7 @@
 
 async function executeCode() {
     try {
-        const {callMcpTool} = Host.getFunctions();
+        const {callMcpTool, workspace_readFile, workspace_writeFile, workspace_listFiles, workspace_deleteFile} = Host.getFunctions();
         // TODO: Make sure callMcpTool is not accessible
 
         /**
@@ -41,6 +41,59 @@ async function executeCode() {
                 return response.result;
             }
         }
+
+        // Workspace filesystem API
+        const workspace = {
+            async readFile(path) {
+                const msg = { path };
+                const mem = Memory.fromString(JSON.stringify(msg));
+                const offset = workspace_readFile(mem.offset);
+                const response = Memory.find(offset).readJsonObject();
+                
+                if (!response.success) {
+                    throw new Error(response.error);
+                }
+                return response.data;
+            },
+            
+            async writeFile(path, content) {
+                const msg = { path, content };
+                const mem = Memory.fromString(JSON.stringify(msg));
+                const offset = workspace_writeFile(mem.offset);
+                const response = Memory.find(offset).readJsonObject();
+                
+                if (!response.success) {
+                    throw new Error(response.error);
+                }
+            },
+            
+            async listFiles(path) {
+                const msg = { path };
+                const mem = Memory.fromString(JSON.stringify(msg));
+                const offset = workspace_listFiles(mem.offset);
+                const response = Memory.find(offset).readJsonObject();
+                
+                if (!response.success) {
+                    throw new Error(response.error);
+                }
+                return response.files;
+            },
+            
+            async deleteFile(path) {
+                const msg = { path };
+                const mem = Memory.fromString(JSON.stringify(msg));
+                const offset = workspace_deleteFile(mem.offset);
+                const response = Memory.find(offset).readJsonObject();
+                
+                if (!response.success) {
+                    throw new Error(response.error);
+                }
+            }
+        };
+        
+        // Expose to bundled code
+        globalThis.__runbyte_workspace = workspace;
+        globalThis.__runbyte_callTool = callTool;
 
         // Get user's code from input
         const code = Host.inputString();
